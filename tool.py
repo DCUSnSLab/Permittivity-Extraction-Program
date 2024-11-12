@@ -21,31 +21,30 @@ class SetupWindow(QWidget):
 
     def SetupUi(self):
         # 파일 업로드 버튼
-        self.FileOpenBtn = QPushButton('파일 업로드', self)
-        self.FileOpenBtn.clicked.connect(self.FileOpen)
-        self.FileOpenBtn.setMinimumHeight(60)
-        self.FileOpenBtn.setMaximumWidth(300)
+        self.file_open_btn = QPushButton('파일 업로드', self)
+        self.file_open_btn.clicked.connect(self.FileOpen)
+        self.file_open_btn.setMinimumHeight(60)
+        self.file_open_btn.setMaximumWidth(300)
 
         # 파일 테이블
-        self.Table = QTableWidget(self)
-        self.Table.setColumnCount(2)
-        self.Table.setHorizontalHeaderLabels(['▼', '업로드된 파일'])
-        self.Table.horizontalHeader().sectionClicked.connect(self.Direction) # layer 방향 조절(text)
-        self.Table.horizontalHeader().sectionClicked.connect(self.LayerSort) # layer 방향 조절
-        self.Table.horizontalHeader().setStretchLastSection(True) # 가장 뒤에 있는 열을 끝까지 공간 채우기
-        self.Table.setSelectionMode(QTableWidget.NoSelection) # 헤더 클릭 시 내용 클릭x
-        self.Table.setMaximumHeight(600)
-        self.Table.setMaximumWidth(1500)
+        self.table = QTableWidget(self)
+        self.table.setColumnCount(2)
+        self.table.setHorizontalHeaderLabels(['▼', '업로드된 파일'])
+        self.table.horizontalHeader().sectionClicked.connect(self.Direction) # layer 방향 조절(text)
+        self.table.horizontalHeader().sectionClicked.connect(self.LayerSort) # layer 방향 조절
+        self.table.horizontalHeader().setStretchLastSection(True) # 가장 뒤에 있는 열을 끝까지 공간 채우기
+        self.table.setSelectionMode(QTableWidget.NoSelection) # 헤더 클릭 시 내용 클릭x
+        self.table.setMaximumHeight(600)
+        self.table.setMaximumWidth(1500)
 
         # 시작 버튼
-        self.StartBtn = QPushButton('시작', self)
-        self.StartBtn.clicked.connect(self.Start)
-        self.StartBtn.setMinimumHeight(60)
-        self.StartBtn.setMinimumWidth(100)
+        self.start_btn = QPushButton('시작', self)
+        self.start_btn.clicked.connect(self.Start)
+        self.start_btn.setMinimumHeight(60)
+        self.start_btn.setMinimumWidth(100)
 
         #파일 위젯
-        self.FileTable = QTabWidget(self)
-
+        self.file_table = QTabWidget(self)
 
     # 파일 업로드 및 테이블 반영
     def FileOpen(self):
@@ -53,11 +52,11 @@ class SetupWindow(QWidget):
         files, _ = QFileDialog.getOpenFileNames(self, "Select Files", "", "All Files (*);;Text Files (*.txt)", options=options)
 
         if files:
-            self.Table.setRowCount(len(files))
+            self.table.setRowCount(len(files))
 
             for i, file in enumerate(files):
-                self.Table.setItem(i, 0, QTableWidgetItem('Layer'+ str(i+1)))
-                self.Table.setItem(i, 1, QTableWidgetItem(file.split('/')[-1]))
+                self.table.setItem(i, 0, QTableWidgetItem('Layer'+ str(i+1)))
+                self.table.setItem(i, 1, QTableWidgetItem(file.split('/')[-1]))
 
             for f in files:
                 self.AddNewPage(f)
@@ -84,29 +83,29 @@ class SetupWindow(QWidget):
         text_edit.setText(contents)
         text_edit.setReadOnly(True)
 
-        self.FileTable.addTab(text_edit, f.split('/')[-1])
+        self.file_table.addTab(text_edit, f.split('/')[-1])
 
     #layer 방향 선택(text)
     def Direction(self, index):
         if index == 0:
-            current_text = self.Table.horizontalHeaderItem(index).text()
+            current_text = self.table.horizontalHeaderItem(index).text()
             if current_text == '▼':
-                self.Table.horizontalHeaderItem(index).setText('▲')
+                self.table.horizontalHeaderItem(index).setText('▲')
             else:
-                self.Table.horizontalHeaderItem(index).setText('▼')
+                self.table.horizontalHeaderItem(index).setText('▼')
 
     def LayerSort(self, index):
         if index == 0:  # 두 번째 열 클릭 시만 작동
             # 현재 테이블 데이터를 추출하여 리스트로 저장
             data = []
-            for row in range(self.Table.rowCount()):
-                rowData = self.Table.item(row, 1).text()
-                data.append(rowData)
+            for row in range(self.table.rowCount()):
+                row_data = self.table.item(row, 1).text()
+                data.append(row_data)
 
-            newData = data[::-1]
+            new_data = data[::-1]
 
-            for row, value in enumerate(newData):
-                self.Table.setItem(row, 1, QTableWidgetItem(value))
+            for row, value in enumerate(new_data):
+                self.table.setItem(row, 1, QTableWidgetItem(value))
 
     def Start(self):
         self.hide()
@@ -116,18 +115,18 @@ class SetupWindow(QWidget):
     # gui 위치 조정
     def Setup(self):
         layout1 = QHBoxLayout()
-        layout1.addWidget(self.FileOpenBtn)
+        layout1.addWidget(self.file_open_btn)
         layout1.addWidget(self.la_img, alignment=Qt.AlignRight)
 
         layout2 = QHBoxLayout()
-        layout2.addWidget(self.Table)
-        layout2.addWidget(self.StartBtn, alignment=Qt.AlignBottom)
+        layout2.addWidget(self.table)
+        layout2.addWidget(self.start_btn, alignment=Qt.AlignBottom)
 
 
         layout = QVBoxLayout()
         layout.addLayout(layout1)
         layout.addLayout(layout2)
-        layout.addWidget(self.FileTable)
+        layout.addWidget(self.file_table)
 
         self.setLayout(layout)
 
@@ -146,10 +145,116 @@ class ResultWindow(QWidget):
         self.la_img.setPixmap(pixmap)
 
     def SetupUi(self):
+        self.info_header = QLabel('정보')
+        self.info_header.setAlignment(Qt.AlignCenter)
+        self.info_header.setMinimumHeight(20)
+        self.info_header.setMaximumHeight(40)
+        self.info_header.setMinimumWidth(500)
+        self.info_header.setStyleSheet("background-color: #E8E8E8;")
+
+        self.frequency = QLabel('주파수 설정')
+        self.frequency.setAlignment(Qt.AlignCenter)
+        self.frequency.setMinimumHeight(20)
+        self.frequency.setMaximumHeight(40)
+        self.frequency.setMinimumWidth(150)
+        self.frequency.setStyleSheet("background-color: #E8E8E8;")
+
+        self.frequency_input = QLineEdit()
+        self.frequency_input.setMinimumHeight(20)
+        self.frequency_input.setMaximumHeight(40)
+        self.frequency_input.setMinimumWidth(100)
+        self.frequency_input.setStyleSheet("background-color: white")
+        self.ghz_label = QLabel('GHz')
+
+        self.real = QLabel('Real')
+        self.real.setAlignment(Qt.AlignCenter)
+        self.real.setMinimumHeight(20)
+        self.real.setMaximumHeight(40)
+        self.real.setMinimumWidth(150)
+        self.real.setStyleSheet("background-color: #E8E8E8;")
+
+        self.real_input = QLineEdit()
+        self.real_input.setMinimumHeight(20)
+        self.real_input.setMaximumHeight(40)
+        self.real_input.setMinimumWidth(100)
+        self.real_input.setStyleSheet("background-color: white")
+
+        self.imaginary = QLabel('Imaginary')
+        self.imaginary.setAlignment(Qt.AlignCenter)
+        self.imaginary.setMinimumHeight(20)
+        self.imaginary.setMaximumHeight(40)
+        self.imaginary.setMinimumWidth(150)
+        self.imaginary.setStyleSheet("background-color: #E8E8E8;")
+
+        self.imaginary_input = QLineEdit()
+        self.imaginary_input.setMinimumHeight(20)
+        self.imaginary_input.setMaximumHeight(40)
+        self.imaginary_input.setMinimumWidth(100)
+        self.imaginary_input.setStyleSheet("background-color: white")
+
+        self.back_btn = QPushButton('뒤로', self)
+        self.back_btn.clicked.connect(self.Back)
+        self.back_btn.setMinimumHeight(60)
+        self.back_btn.setMinimumWidth(100)
+
+        self.save_excel_btn = QPushButton('Excel로 저장', self)
+        self.save_excel_btn.clicked.connect(self.SaveExcel)
+        self.save_excel_btn.setMinimumHeight(60)
+        self.save_excel_btn.setMinimumWidth(100)
+
+        self.save_txt_btn = QPushButton('txt로 저장', self)
+        self.save_txt_btn.clicked.connect(self.SaveTxt)
+        self.save_txt_btn.setMinimumHeight(60)
+        self.save_txt_btn.setMinimumWidth(100)
+
+        self.output_header = QLabel('출력데이터')
+        self.output_header.setAlignment(Qt.AlignCenter)
+        self.output_header.setStyleSheet("background-color: #E8E8E8;")
+
+    def Back(self):
+        pass
+
+    def SaveExcel(self):
+        pass
+
+    def SaveTxt(self):
         pass
 
     def Setup(self):
-        pass
+        layout1 = QHBoxLayout()
+        layout1.addWidget(self.info_header)
+        layout1.addWidget(self.la_img, alignment=Qt.AlignRight)
+
+        freq_input_layout = QHBoxLayout()
+        freq_input_layout.addWidget(self.frequency_input)
+        freq_input_layout.addWidget(self.ghz_label)
+
+        freq_box = QGroupBox()
+        freq_box.setLayout(freq_input_layout)
+        freq_box.setStyleSheet("background-color: #E8E8E8")
+        freq_box.setMaximumHeight(40)
+
+        layout2 = QHBoxLayout()
+        layout2.addWidget(self.frequency)
+        layout2.addWidget(freq_box)
+        layout2.addWidget(self.back_btn, alignment=Qt.AlignRight)
+
+        layout3 = QHBoxLayout()
+        layout3.addWidget(self.real)
+        layout3.addWidget(self.real_input)
+        layout3.addWidget(self.imaginary)
+        layout3.addWidget(self.imaginary_input)
+        layout3.addWidget(self.save_excel_btn, alignment=Qt.AlignRight)
+        layout3.addWidget(self.save_txt_btn, alignment=Qt.AlignRight)
+
+
+        layout4 = QVBoxLayout()
+        layout4.addLayout(layout1)
+        layout4.addLayout(layout2)
+        layout4.addLayout(layout3)
+        layout4.addWidget(self.output_header)
+
+        self.setLayout(layout4)
 
 if __name__ == '__main__':
    app = QApplication(sys.argv)

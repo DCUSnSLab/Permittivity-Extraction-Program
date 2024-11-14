@@ -1,4 +1,5 @@
 import sys
+import pandas as pd
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
@@ -8,6 +9,7 @@ class SetupWindow(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.file_data = []
         self.initUI()
         self.SetupUi()
         self.Setup()
@@ -35,7 +37,7 @@ class SetupWindow(QWidget):
         self.table.horizontalHeader().setStretchLastSection(True) # 가장 뒤에 있는 열을 끝까지 공간 채우기
         self.table.setSelectionMode(QTableWidget.NoSelection) # 헤더 클릭 시 내용 클릭x
         self.table.setMaximumHeight(600)
-        self.table.setMaximumWidth(1500)
+        self.table.setMaximumWidth(2500)
 
         # 시작 버튼
         self.start_btn = QPushButton('시작', self)
@@ -45,7 +47,8 @@ class SetupWindow(QWidget):
 
         #파일 위젯
         self.file_table = QTabWidget(self)
-
+        self.file_table.setTabPosition(QTabWidget.North)
+        self.file_table.setStyleSheet("QTabBar::tab { Height: 40px; width: 180px; }")
     # 파일 업로드 및 테이블 반영
     def FileOpen(self):
         options = QFileDialog.Options()
@@ -53,8 +56,10 @@ class SetupWindow(QWidget):
 
         if files:
             self.table.setRowCount(len(files))
+            self.file_data = []
 
             for i, file in enumerate(files):
+                self.file_data.append(file)
                 self.table.setItem(i, 0, QTableWidgetItem('Layer'+ str(i+1)))
                 self.table.setItem(i, 1, QTableWidgetItem(file.split('/')[-1]))
 
@@ -109,7 +114,8 @@ class SetupWindow(QWidget):
 
     def Start(self):
         self.hide()
-        self.result = ResultWindow()
+        self.result = ResultWindow(file_paths=self.file_data)
+        self.result.resize(self.size())
         self.result.show()
 
     # gui 위치 조정
@@ -132,11 +138,21 @@ class SetupWindow(QWidget):
 
 # 결과화면
 class ResultWindow(QWidget):
-    def __init__(self):
+    def __init__(self, file_paths=None):
         super().__init__()
+        self.file_paths = file_paths
+        self.file_cache = {}
         self.initUI()
         self.SetupUi()
         self.Setup()
+
+        if self.file_paths:
+            for path in self.file_paths:
+                try:
+                    with open(path, 'r', encoding='utf-8') as file:
+                        self.file_cache[path] = file.readlines()
+                except Exception as e:
+                    print(f"파일 읽기 오류: {path} - {e}")
 
     def initUI(self):
         self.setWindowTitle('Permittivity Extraction Program')
@@ -164,6 +180,7 @@ class ResultWindow(QWidget):
         self.frequency_input.setMaximumHeight(40)
         self.frequency_input.setMinimumWidth(100)
         self.frequency_input.setStyleSheet("background-color: white")
+        self.frequency_input.returnPressed.connect(self.SearchFrequency)
         self.ghz_label = QLabel('GHz')
 
         self.real = QLabel('Real')
@@ -178,6 +195,7 @@ class ResultWindow(QWidget):
         self.real_input.setMaximumHeight(40)
         self.real_input.setMinimumWidth(100)
         self.real_input.setStyleSheet("background-color: white")
+        self.real_input.returnPressed.connect(self.SearchReal)
 
         self.imaginary = QLabel('Imaginary')
         self.imaginary.setAlignment(Qt.AlignCenter)
@@ -191,6 +209,7 @@ class ResultWindow(QWidget):
         self.imaginary_input.setMaximumHeight(40)
         self.imaginary_input.setMinimumWidth(100)
         self.imaginary_input.setStyleSheet("background-color: white")
+        self.imaginary_input.returnPressed.connect(self.SearchImaginary)
 
         self.back_btn = QPushButton('뒤로', self)
         self.back_btn.clicked.connect(self.Back)
@@ -211,14 +230,105 @@ class ResultWindow(QWidget):
         self.output_header.setAlignment(Qt.AlignCenter)
         self.output_header.setStyleSheet("background-color: #E8E8E8;")
 
-    def Back(self):
+        self.output_text = QTextEdit()
+        self.output_text.setReadOnly(True)
+
+    def SearchFrequency(self):
+        try:
+            freq = round(float(self.frequency_input.text().strip()), 1)
+        except ValueError:
+            QMessageBox.warning(self, "오류", "찾을 수 없습니다.")
+            return
+
+        found = False
+        self.output_text.clear()
+
+        for path, content in self.file_cache.items():
+            for line in content:
+                columns = line.strip().split()
+                if len(columns) > 1:
+                    try:
+                        file_freq = round(float(columns[0]), 1)
+                        if file_freq == freq:
+                            self.output_text.append(f"{line.strip()}")
+                            found = True
+                    except ValueError:
+                        continue
+
+        if not found:
+            self.output_text.append("해당 주파수를 찾을 수 없습니다.")
+
+    def SearchReal(self):
+        try:
+            real_value = float(self.real_input.text().strip())
+        except ValueError:
+            QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
+            return
+
+        found = False
+        self.output_text.clear()
+
+        for path, content in self.file_cache.items():
+            for line in content:
+                columns = line.strip().split()
+                if len(columns) > 2:
+                    try:
+                        file_real = float(columns[1])
+                        if file_real == real_value:
+                            self.output_text.append(f"{line.strip()}")
+                            found = True
+                    except ValueError:
+                        continue
+
+        if not found:
+            self.output_text.append("해당 Real 값을 찾을 수 없습니다.")
+
+    def SearchImaginary(self):
         pass
+
+    def Back(self):
+        self.hide()
+        self.start = SetupWindow()
+        self.start.file_data = []
+        self.start.table.setRowCount(0)
+        self.start.file_table.clear()
+        self.start.resize(self.size())
+        self.start.move(self.pos())
+        self.start.show()
 
     def SaveExcel(self):
-        pass
+        if self.output_text.toPlainText().strip():
+            lines = self.output_text.toPlainText().split('\n')
+            data = [line.split() for line in lines if line.strip()]
 
+            df = pd.DataFrame(data)
+
+            options = QFileDialog.Options()
+            file_path, _ = QFileDialog.getSaveFileName(self, "Excel 파일로 저장", "", "Excel Files (*.xlsx);;All Files (*)", options=options)
+
+            if file_path:
+                try:
+                    df.to_excel(file_path, index=False, header=False, engine='openpyxl')
+                    QMessageBox.information(self, "성공", "데이터가 Excel 파일로 저장되었습니다.")
+                except Exception as e:
+                    QMessageBox.warning(self, "오류", f"Excel 파일 저장 중 오류가 발생했습니다: {e}")
+        else:
+            QMessageBox.warning(self, "오류", "저장할 출력 데이터가 없습니다.")
     def SaveTxt(self):
-        pass
+        if self.output_text.toPlainText().strip():
+            options = QFileDialog.Options()
+            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)",
+                                                       options=options)
+
+            if file_path:
+                try:
+                    with open(file_path, 'w', encoding='utf-8') as file:
+                        file.write(self.output_text.toPlainText())
+                    QMessageBox.information(self, "성공", "데이터가 txt 파일로 저장되었습니다.")
+                except Exception as e:
+                    QMessageBox.warning(self, "오류", f"txt 파일 저장 중 오류가 발생했습니다: {e}")
+        else:
+            QMessageBox.warning(self, "오류", "저장할 출력 데이터가 없습니다.")
 
     def Setup(self):
         layout1 = QHBoxLayout()
@@ -253,6 +363,7 @@ class ResultWindow(QWidget):
         layout4.addLayout(layout2)
         layout4.addLayout(layout3)
         layout4.addWidget(self.output_header)
+        layout4.addWidget(self.output_text)
 
         self.setLayout(layout4)
 

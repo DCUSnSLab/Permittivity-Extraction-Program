@@ -3,6 +3,7 @@ import pandas as pd
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
+from decimal import Decimal, ROUND_FLOOR
 
 # 시작화면
 class SetupWindow(QWidget):
@@ -163,51 +164,58 @@ class ResultWindow(QWidget):
     def SetupUi(self):
         self.info_header = QLabel('정보')
         self.info_header.setAlignment(Qt.AlignCenter)
-        self.info_header.setMinimumHeight(20)
-        self.info_header.setMaximumHeight(40)
-        self.info_header.setMinimumWidth(500)
+        self.info_header.setMinimumHeight(40)
+        self.info_header.setMaximumHeight(60)
+        self.info_header.setMaximumWidth(760)
         self.info_header.setStyleSheet("background-color: #E8E8E8;")
 
         self.frequency = QLabel('주파수 설정')
         self.frequency.setAlignment(Qt.AlignCenter)
-        self.frequency.setMinimumHeight(20)
-        self.frequency.setMaximumHeight(40)
+        self.frequency.setMinimumHeight(40)
+        self.frequency.setMaximumHeight(60)
         self.frequency.setMinimumWidth(150)
+        self.frequency.setMaximumWidth(300)
         self.frequency.setStyleSheet("background-color: #E8E8E8;")
 
         self.frequency_input = QLineEdit()
         self.frequency_input.setMinimumHeight(20)
         self.frequency_input.setMaximumHeight(40)
-        self.frequency_input.setMinimumWidth(100)
+        self.frequency_input.setMinimumWidth(250)
+        self.frequency_input.setMaximumWidth(500)
         self.frequency_input.setStyleSheet("background-color: white")
         self.frequency_input.returnPressed.connect(self.SearchFrequency)
+
         self.ghz_label = QLabel('GHz')
 
         self.real = QLabel('Real')
         self.real.setAlignment(Qt.AlignCenter)
         self.real.setMinimumHeight(20)
         self.real.setMaximumHeight(40)
-        self.real.setMinimumWidth(150)
+        self.real.setMaximumWidth(300)
+        self.real.setMinimumWidth(70)
         self.real.setStyleSheet("background-color: #E8E8E8;")
 
         self.real_input = QLineEdit()
         self.real_input.setMinimumHeight(20)
         self.real_input.setMaximumHeight(40)
-        self.real_input.setMinimumWidth(100)
+        self.real_input.setMinimumWidth(90)
+        self.real_input.setMaximumWidth(290)
         self.real_input.setStyleSheet("background-color: white")
         self.real_input.returnPressed.connect(self.SearchReal)
 
         self.imaginary = QLabel('Imaginary')
         self.imaginary.setAlignment(Qt.AlignCenter)
         self.imaginary.setMinimumHeight(20)
-        self.imaginary.setMaximumHeight(40)
-        self.imaginary.setMinimumWidth(150)
+        self.imaginary.setMaximumHeight(100)
+        self.imaginary.setMaximumWidth(300)
+        self.imaginary.setMinimumWidth(80)
         self.imaginary.setStyleSheet("background-color: #E8E8E8;")
 
         self.imaginary_input = QLineEdit()
         self.imaginary_input.setMinimumHeight(20)
         self.imaginary_input.setMaximumHeight(40)
-        self.imaginary_input.setMinimumWidth(100)
+        self.imaginary_input.setMinimumWidth(90)
+        self.imaginary_input.setMaximumWidth(290)
         self.imaginary_input.setStyleSheet("background-color: white")
         self.imaginary_input.returnPressed.connect(self.SearchImaginary)
 
@@ -229,15 +237,22 @@ class ResultWindow(QWidget):
         self.output_header = QLabel('출력데이터')
         self.output_header.setAlignment(Qt.AlignCenter)
         self.output_header.setStyleSheet("background-color: #E8E8E8;")
+        self.output_header.setMinimumHeight(50)
 
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
 
     def SearchFrequency(self):
         try:
-            freq = round(float(self.frequency_input.text().strip()), 1)
-        except ValueError:
-            QMessageBox.warning(self, "오류", "찾을 수 없습니다.")
+            freq_input = Decimal(self.frequency_input.text().strip())
+            if freq_input.as_tuple().exponent == 0:
+                freq_input_trimmed = freq_input.quantize(Decimal('0'), rounding=ROUND_FLOOR)
+                precision = Decimal('0')
+            else:
+                freq_input_trimmed = freq_input.quantize(Decimal('0.0'), rounding=ROUND_FLOOR)
+                precision = Decimal('0.0')
+        except (ValueError, ArithmeticError):
+            QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
             return
 
         found = False
@@ -248,11 +263,12 @@ class ResultWindow(QWidget):
                 columns = line.strip().split()
                 if len(columns) > 1:
                     try:
-                        file_freq = round(float(columns[0]), 1)
-                        if file_freq == freq:
+                        file_freq = Decimal(columns[0])
+                        file_freq_trimmed = file_freq.quantize(precision, rounding=ROUND_FLOOR)
+                        if file_freq_trimmed == freq_input_trimmed:
                             self.output_text.append(f"{line.strip()}")
                             found = True
-                    except ValueError:
+                    except (ValueError, ArithmeticError):
                         continue
 
         if not found:
@@ -260,8 +276,17 @@ class ResultWindow(QWidget):
 
     def SearchReal(self):
         try:
-            real_value = float(self.real_input.text().strip())
-        except ValueError:
+            real_value = Decimal(self.real_input.text().strip())
+            if real_value.as_tuple().exponent == -1:
+                real_value_trimmed = real_value.quantize(Decimal('0.0'), rounding=ROUND_FLOOR)
+                precision = Decimal('0.0')
+            elif real_value.as_tuple().exponent == -2:
+                real_value_trimmed = real_value.quantize(Decimal('0.00'), rounding=ROUND_FLOOR)
+                precision = Decimal('0.00')
+            else:
+                real_value_trimmed = real_value.quantize(Decimal('0.000'), rounding=ROUND_FLOOR)
+                precision = Decimal('0.000')
+        except (ValueError, ArithmeticError):
             QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
             return
 
@@ -273,18 +298,54 @@ class ResultWindow(QWidget):
                 columns = line.strip().split()
                 if len(columns) > 2:
                     try:
-                        file_real = float(columns[1])
-                        if file_real == real_value:
+                        file_real = Decimal(columns[1])
+                        file_real_trimmed = file_real.quantize(precision, rounding=ROUND_FLOOR)
+                        if file_real_trimmed == real_value_trimmed:
                             self.output_text.append(f"{line.strip()}")
                             found = True
-                    except ValueError:
+                    except (ValueError, ArithmeticError):
                         continue
 
         if not found:
             self.output_text.append("해당 Real 값을 찾을 수 없습니다.")
 
     def SearchImaginary(self):
-        pass
+        try:
+            # 입력 값을 Decimal로 변환
+            imaginary_value = Decimal(self.imaginary_input.text().strip())
+            if imaginary_value.as_tuple().exponent >= 0:
+                precision = Decimal('0.0')
+            elif imaginary_value.as_tuple().exponent == -1:
+                precision = Decimal('0.0')
+            else:
+                precision = Decimal('0.00')
+
+            imaginary_value_trimmed = imaginary_value.quantize(precision, rounding=ROUND_FLOOR)
+
+        except (ValueError, ArithmeticError):
+            QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
+            return
+
+        found = False
+        self.output_text.clear()
+
+        for path, content in self.file_cache.items():
+            for line in content:
+                columns = line.strip().split()
+                if len(columns) > 2:
+                    try:
+                        # 파일의 3열 값 처리
+                        file_imaginary = Decimal(columns[2])
+                        file_imaginary_trimmed = file_imaginary.quantize(precision, rounding=ROUND_FLOOR)
+
+                        if file_imaginary_trimmed == imaginary_value_trimmed:
+                            self.output_text.append(f"{line.strip()}")
+                            found = True
+                    except (ValueError, ArithmeticError):
+                        continue
+
+        if not found:
+            self.output_text.append("해당 Imaginary 값을 찾을 수 없습니다.")
 
     def Back(self):
         self.hide()
@@ -317,8 +378,7 @@ class ResultWindow(QWidget):
     def SaveTxt(self):
         if self.output_text.toPlainText().strip():
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)",
-                                                       options=options)
+            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)", options=options)
 
             if file_path:
                 try:
@@ -336,12 +396,14 @@ class ResultWindow(QWidget):
         layout1.addWidget(self.la_img, alignment=Qt.AlignRight)
 
         freq_input_layout = QHBoxLayout()
-        freq_input_layout.addWidget(self.frequency_input)
-        freq_input_layout.addWidget(self.ghz_label)
+        freq_input_layout.addWidget(self.frequency_input, alignment=Qt.AlignLeft)
+        freq_input_layout.addWidget(self.ghz_label, alignment=Qt.AlignLeft)
 
         freq_box = QGroupBox()
         freq_box.setLayout(freq_input_layout)
         freq_box.setStyleSheet("background-color: #E8E8E8")
+        freq_box.setMinimumWidth(100)
+        freq_box.setMaximumWidth(450)
         freq_box.setMaximumHeight(40)
 
         layout2 = QHBoxLayout()
@@ -354,6 +416,10 @@ class ResultWindow(QWidget):
         layout3.addWidget(self.real_input)
         layout3.addWidget(self.imaginary)
         layout3.addWidget(self.imaginary_input)
+
+        spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        layout3.addItem(spacer)
+
         layout3.addWidget(self.save_excel_btn, alignment=Qt.AlignRight)
         layout3.addWidget(self.save_txt_btn, alignment=Qt.AlignRight)
 

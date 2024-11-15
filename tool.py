@@ -239,9 +239,13 @@ class ResultWindow(QWidget):
         self.output_header.setStyleSheet("background-color: #E8E8E8;")
         self.output_header.setMinimumHeight(50)
 
-        self.output_text = QTextEdit()
-        self.output_text.setReadOnly(True)
+        self.output_table = QTableWidget()
+        self.output_table.setColumnCount(3)
+        self.output_table.setHorizontalHeaderLabels(['Frequency [GHz]', 'Real', 'Imaginary'])
+        self.output_table.setSelectionMode(QTableWidget.NoSelection)
+        self.output_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
+    # 주파수 찾기
     def SearchFrequency(self):
         try:
             freq_input = Decimal(self.frequency_input.text().strip())
@@ -256,7 +260,7 @@ class ResultWindow(QWidget):
             return
 
         found = False
-        self.output_text.clear()
+        self.output_table.setRowCount(0)
 
         for path, content in self.file_cache.items():
             for line in content:
@@ -266,14 +270,19 @@ class ResultWindow(QWidget):
                         file_freq = Decimal(columns[0])
                         file_freq_trimmed = file_freq.quantize(precision, rounding=ROUND_FLOOR)
                         if file_freq_trimmed == freq_input_trimmed:
-                            self.output_text.append(f"{line.strip()}")
+                            row_position = self.output_table.rowCount()
+                            self.output_table.insertRow(row_position)
+                            self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
+                            self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
+                            self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
                             found = True
                     except (ValueError, ArithmeticError):
                         continue
 
         if not found:
-            self.output_text.append("해당 주파수를 찾을 수 없습니다.")
+            QMessageBox.information(self, "결과", "해당 주파수를 찾을 수 없습니다.")
 
+    # 실수부 찾기
     def SearchReal(self):
         try:
             real_value = Decimal(self.real_input.text().strip())
@@ -291,7 +300,7 @@ class ResultWindow(QWidget):
             return
 
         found = False
-        self.output_text.clear()
+        self.output_table.setRowCount(0)
 
         for path, content in self.file_cache.items():
             for line in content:
@@ -301,14 +310,19 @@ class ResultWindow(QWidget):
                         file_real = Decimal(columns[1])
                         file_real_trimmed = file_real.quantize(precision, rounding=ROUND_FLOOR)
                         if file_real_trimmed == real_value_trimmed:
-                            self.output_text.append(f"{line.strip()}")
+                            row_position = self.output_table.rowCount()
+                            self.output_table.insertRow(row_position)
+                            self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
+                            self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
+                            self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
                             found = True
                     except (ValueError, ArithmeticError):
                         continue
 
         if not found:
-            self.output_text.append("해당 Real 값을 찾을 수 없습니다.")
+            QMessageBox.information(self, "결과", "해당 Real 값을 찾을 수 없습니다.")
 
+    # 허수부 찾기
     def SearchImaginary(self):
         try:
             # 입력 값을 Decimal로 변환
@@ -327,7 +341,7 @@ class ResultWindow(QWidget):
             return
 
         found = False
-        self.output_text.clear()
+        self.output_table.setRowCount(0)
 
         for path, content in self.file_cache.items():
             for line in content:
@@ -339,13 +353,18 @@ class ResultWindow(QWidget):
                         file_imaginary_trimmed = file_imaginary.quantize(precision, rounding=ROUND_FLOOR)
 
                         if file_imaginary_trimmed == imaginary_value_trimmed:
-                            self.output_text.append(f"{line.strip()}")
+                            row_position = self.output_table.rowCount()
+                            self.output_table.insertRow(row_position)
+                            self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
+                            self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
+                            self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
                             found = True
                     except (ValueError, ArithmeticError):
                         continue
 
         if not found:
-            self.output_text.append("해당 Imaginary 값을 찾을 수 없습니다.")
+            QMessageBox.information(self, "결과", "해당 Imaginary 값을 찾을 수 없습니다.")
+
 
     def Back(self):
         self.hide()
@@ -358,32 +377,52 @@ class ResultWindow(QWidget):
         self.start.show()
 
     def SaveExcel(self):
-        if self.output_text.toPlainText().strip():
-            lines = self.output_text.toPlainText().split('\n')
-            data = [line.split() for line in lines if line.strip()]
+        if self.output_table.rowCount() > 0:
+            data = []
+            for row in range(self.output_table.rowCount()):
+                row_data = []
+                for column in range(self.output_table.columnCount()):
+                    item = self.output_table.item(row, column)
+                    row_data.append(item.text() if item else "")
+                data.append(row_data)
 
-            df = pd.DataFrame(data)
+            df = pd.DataFrame(data, columns=['Frequency [GHz]', 'Real', 'Imaginary'])
 
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getSaveFileName(self, "Excel 파일로 저장", "", "Excel Files (*.xlsx);;All Files (*)", options=options)
+            file_path, _ = QFileDialog.getSaveFileName(self, "Excel 파일로 저장", "", "Excel Files (*.xlsx);;All Files (*)",
+                                                       options=options)
 
             if file_path:
                 try:
-                    df.to_excel(file_path, index=False, header=False, engine='openpyxl')
+                    df.to_excel(file_path, index=False, engine='openpyxl')
                     QMessageBox.information(self, "성공", "데이터가 Excel 파일로 저장되었습니다.")
                 except Exception as e:
                     QMessageBox.warning(self, "오류", f"Excel 파일 저장 중 오류가 발생했습니다: {e}")
         else:
             QMessageBox.warning(self, "오류", "저장할 출력 데이터가 없습니다.")
+
     def SaveTxt(self):
-        if self.output_text.toPlainText().strip():
+        if self.output_table.rowCount() > 0:
+            data = []
+
+            headers = [self.output_table.horizontalHeaderItem(column).text() for column in range(self.output_table.columnCount())]
+            data.append(" ".join(headers))
+
+            for row in range(self.output_table.rowCount()):
+                row_data = []
+                for column in range(self.output_table.columnCount()):
+                    item = self.output_table.item(row, column)
+                    row_data.append(item.text() if item else "")
+                data.append(" ".join(row_data))
+
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)", options=options)
+            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)",options=options)
 
             if file_path:
                 try:
                     with open(file_path, 'w', encoding='utf-8') as file:
-                        file.write(self.output_text.toPlainText())
+                        for line in data:
+                            file.write(line + '\n')
                     QMessageBox.information(self, "성공", "데이터가 txt 파일로 저장되었습니다.")
                 except Exception as e:
                     QMessageBox.warning(self, "오류", f"txt 파일 저장 중 오류가 발생했습니다: {e}")
@@ -423,13 +462,12 @@ class ResultWindow(QWidget):
         layout3.addWidget(self.save_excel_btn, alignment=Qt.AlignRight)
         layout3.addWidget(self.save_txt_btn, alignment=Qt.AlignRight)
 
-
         layout4 = QVBoxLayout()
         layout4.addLayout(layout1)
         layout4.addLayout(layout2)
         layout4.addLayout(layout3)
         layout4.addWidget(self.output_header)
-        layout4.addWidget(self.output_text)
+        layout4.addWidget(self.output_table)
 
         self.setLayout(layout4)
 

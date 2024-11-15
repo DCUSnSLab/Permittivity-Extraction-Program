@@ -155,6 +155,31 @@ class ResultWindow(QWidget):
                 except Exception as e:
                     print(f"파일 읽기 오류: {path} - {e}")
 
+            self.DisplayAllData()
+
+    def DisplayAllData(self):
+        data = []
+        for path, content in self.file_cache.items():
+            for line in content:
+                columns = line.strip().split()
+                if len(columns) > 2:
+                    try:
+                        frequency = Decimal(columns[0])
+                        data.append((frequency, columns[0], columns[1], columns[2]))
+                    except (ValueError, ArithmeticError):
+                        continue
+
+        data.sort(key=lambda x: x[0])
+
+        self.output_table.setRowCount(0)  # 테이블 초기화
+        for _, freq, real, imag in data:
+            row_position = self.output_table.rowCount()
+            self.output_table.insertRow(row_position)
+            self.output_table.setItem(row_position, 0, QTableWidgetItem(freq))
+            self.output_table.setItem(row_position, 1, QTableWidgetItem(real))
+            self.output_table.setItem(row_position, 2, QTableWidgetItem(imag))
+
+
     def initUI(self):
         self.setWindowTitle('Permittivity Extraction Program')
         pixmap = QPixmap('SL.png')

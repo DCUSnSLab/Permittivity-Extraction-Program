@@ -325,14 +325,8 @@ class ResultWindow(QWidget):
     # 허수부 찾기
     def SearchImaginary(self):
         try:
-            # 입력 값을 Decimal로 변환
-            imaginary_value = Decimal(self.imaginary_input.text().strip())
-            if imaginary_value.as_tuple().exponent >= 0:
-                precision = Decimal('0.0')
-            elif imaginary_value.as_tuple().exponent == -1:
-                precision = Decimal('0.0')
-            else:
-                precision = Decimal('0.00')
+            imaginary_value = Decimal(self.imaginary_input.text().strip()) / Decimal(100)
+            precision = Decimal('0.000')
 
             imaginary_value_trimmed = imaginary_value.quantize(precision, rounding=ROUND_FLOOR)
 
@@ -348,7 +342,6 @@ class ResultWindow(QWidget):
                 columns = line.strip().split()
                 if len(columns) > 2:
                     try:
-                        # 파일의 3열 값 처리
                         file_imaginary = Decimal(columns[2])
                         file_imaginary_trimmed = file_imaginary.quantize(precision, rounding=ROUND_FLOOR)
 
@@ -364,7 +357,6 @@ class ResultWindow(QWidget):
 
         if not found:
             QMessageBox.information(self, "결과", "해당 Imaginary 값을 찾을 수 없습니다.")
-
 
     def Back(self):
         self.hide()

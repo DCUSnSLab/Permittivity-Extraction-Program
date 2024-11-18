@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from decimal import Decimal, ROUND_FLOOR
-from functools import reduce
 
 # 시작화면
 class SetupWindow(QWidget):
@@ -207,8 +206,8 @@ class ResultWindow(QWidget):
         self.frequency_input = QLineEdit()
         self.frequency_input.setMinimumHeight(20)
         self.frequency_input.setMaximumHeight(40)
-        self.frequency_input.setMinimumWidth(250)
-        self.frequency_input.setMaximumWidth(500)
+        self.frequency_input.setMinimumWidth(150)
+        self.frequency_input.setMaximumWidth(450)
         self.frequency_input.setStyleSheet("background-color: white")
         self.frequency_input.returnPressed.connect(self.SearchFrequency)
 
@@ -273,14 +272,15 @@ class ResultWindow(QWidget):
         self.output_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
         self.check_box1 = QCheckBox('frequency', self)
-        self.check_box1.stateChanged.connect(self.Search)
         self.check_box2 = QCheckBox('real', self)
-        self.check_box2.stateChanged.connect(self.Search)
         self.check_box3 = QCheckBox('imaginary', self)
-        self.check_box3.stateChanged.connect(self.Search)
 
     # 주파수 찾기
     def SearchFrequency(self):
+        if not self.check_box1.isChecked():
+            QMessageBox.warning(self, "오류", "frequency 박스에 체크해주세요.")
+            return
+
         try:
             freq_input = Decimal(self.frequency_input.text().strip())
             if freq_input.as_tuple().exponent == 0:
@@ -318,6 +318,9 @@ class ResultWindow(QWidget):
 
     # 실수부 찾기
     def SearchReal(self):
+        if not self.check_box2.isChecked():
+            QMessageBox.warning(self, "오류", "real 박스에 체크해주세요.")
+            return
         try:
             real_value = Decimal(self.real_input.text().strip())
             if real_value.as_tuple().exponent == 0:
@@ -349,6 +352,7 @@ class ResultWindow(QWidget):
                             self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
                             self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
                             self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
+                            self.result_real.append((columns[0], columns[1], columns[2]))
                             found = True
                     except (ValueError, ArithmeticError):
                         continue
@@ -358,6 +362,9 @@ class ResultWindow(QWidget):
 
     # 허수부 찾기
     def SearchImaginary(self):
+        if not self.check_box3.isChecked():
+            QMessageBox.warning(self, "오류", "imaginary 박스에 체크해주세요.")
+            return
         try:
             imaginary_value = Decimal(self.imaginary_input.text().strip()) / Decimal(100)
             precision = Decimal('0.000')
@@ -385,6 +392,7 @@ class ResultWindow(QWidget):
                             self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
                             self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
                             self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
+                            self.result.append((columns[0], columns[1], columns[2]))
                             found = True
                     except (ValueError, ArithmeticError):
                         continue
@@ -392,8 +400,17 @@ class ResultWindow(QWidget):
         if not found:
             QMessageBox.information(self, "결과", "해당 Imaginary 값을 찾을 수 없습니다.")
 
-    def Search(self):
-        pass
+    def DisplayResults(self, results):
+        self.output_table.setRowCount(0)
+        if results:
+            for result in results:
+                row_position = self.output_table.rowCount()
+                self.output_table.insertRow(row_position)
+                self.output_table.setItem(row_position, 0, QTableWidgetItem(result[0]))
+                self.output_table.setItem(row_position, 1, QTableWidgetItem(result[1]))
+                self.output_table.setItem(row_position, 2, QTableWidgetItem(result[2]))
+        else:
+            QMessageBox.information(self, "결과", "조건에 맞는 데이터를 찾을 수 없습니다.")
 
     def Back(self):
         self.hide()
@@ -490,7 +507,7 @@ class ResultWindow(QWidget):
         layout2 = QHBoxLayout()
         layout2.addWidget(self.frequency)
         layout2.addWidget(freq_box)
-        layout2.addWidget(check_box, alignment=Qt.AlignRight)
+        layout2.addWidget(check_box, alignment=Qt.AlignLeft)
         layout2.addWidget(self.back_btn, alignment=Qt.AlignRight)
 
         layout3 = QHBoxLayout()

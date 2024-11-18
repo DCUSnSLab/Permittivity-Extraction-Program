@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from decimal import Decimal, ROUND_FLOOR
+from functools import reduce
 
 # 시작화면
 class SetupWindow(QWidget):
@@ -109,6 +110,8 @@ class SetupWindow(QWidget):
                 data.append(row_data)
 
             new_data = data[::-1]
+            be_file_data = self.file_data
+            self.file_data = be_file_data[::-1]
 
             for row, value in enumerate(new_data):
                 self.table.setItem(row, 1, QTableWidgetItem(value))
@@ -159,17 +162,17 @@ class ResultWindow(QWidget):
 
     def DisplayAllData(self):
         data = []
-        for path, content in self.file_cache.items():
-            for line in content:
-                columns = line.strip().split()
-                if len(columns) > 2:
-                    try:
-                        frequency = Decimal(columns[0])
-                        data.append((frequency, columns[0], columns[1], columns[2]))
-                    except (ValueError, ArithmeticError):
-                        continue
-
-        data.sort(key=lambda x: x[0])
+        for path in self.file_paths:
+            if path in self.file_cache:
+                content = self.file_cache[path]
+                for line in content:
+                    columns = line.strip().split()
+                    if len(columns) > 2:
+                        try:
+                            frequency = Decimal(columns[0])
+                            data.append((frequency, columns[0], columns[1], columns[2]))
+                        except (ValueError, ArithmeticError):
+                            continue
 
         self.output_table.setRowCount(0)  # 테이블 초기화
         for _, freq, real, imag in data:
@@ -178,7 +181,6 @@ class ResultWindow(QWidget):
             self.output_table.setItem(row_position, 0, QTableWidgetItem(freq))
             self.output_table.setItem(row_position, 1, QTableWidgetItem(real))
             self.output_table.setItem(row_position, 2, QTableWidgetItem(imag))
-
 
     def initUI(self):
         self.setWindowTitle('Permittivity Extraction Program')
@@ -270,6 +272,13 @@ class ResultWindow(QWidget):
         self.output_table.setSelectionMode(QTableWidget.NoSelection)
         self.output_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
+        self.check_box1 = QCheckBox('frequency', self)
+        self.check_box1.stateChanged.connect(self.Search)
+        self.check_box2 = QCheckBox('real', self)
+        self.check_box2.stateChanged.connect(self.Search)
+        self.check_box3 = QCheckBox('imaginary', self)
+        self.check_box3.stateChanged.connect(self.Search)
+
     # 주파수 찾기
     def SearchFrequency(self):
         try:
@@ -311,15 +320,15 @@ class ResultWindow(QWidget):
     def SearchReal(self):
         try:
             real_value = Decimal(self.real_input.text().strip())
-            if real_value.as_tuple().exponent == -1:
+            if real_value.as_tuple().exponent == 0:
+                real_value_trimmed = real_value.quantize(Decimal('0'), rounding=ROUND_FLOOR)
+                precision = Decimal('0')
+            elif real_value.as_tuple().exponent == -1:
                 real_value_trimmed = real_value.quantize(Decimal('0.0'), rounding=ROUND_FLOOR)
                 precision = Decimal('0.0')
-            elif real_value.as_tuple().exponent == -2:
+            else:
                 real_value_trimmed = real_value.quantize(Decimal('0.00'), rounding=ROUND_FLOOR)
                 precision = Decimal('0.00')
-            else:
-                real_value_trimmed = real_value.quantize(Decimal('0.000'), rounding=ROUND_FLOOR)
-                precision = Decimal('0.000')
         except (ValueError, ArithmeticError):
             QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
             return
@@ -382,6 +391,9 @@ class ResultWindow(QWidget):
 
         if not found:
             QMessageBox.information(self, "결과", "해당 Imaginary 값을 찾을 수 없습니다.")
+
+    def Search(self):
+        pass
 
     def Back(self):
         self.hide()
@@ -462,9 +474,23 @@ class ResultWindow(QWidget):
         freq_box.setMaximumWidth(450)
         freq_box.setMaximumHeight(40)
 
+        check_input_layout = QVBoxLayout()
+        check_input_layout.addWidget(self.check_box1)
+        check_input_layout.addWidget(self.check_box2)
+        check_input_layout.addWidget(self.check_box3)
+
+        check_box = QGroupBox()
+        check_box.setLayout(check_input_layout)
+        check_box.setStyleSheet("background-color: #E8E8E8")
+        freq_box.setMinimumWidth(100)
+        freq_box.setMaximumWidth(450)
+        freq_box.setMaximumHeight(40)
+
+
         layout2 = QHBoxLayout()
         layout2.addWidget(self.frequency)
         layout2.addWidget(freq_box)
+        layout2.addWidget(check_box, alignment=Qt.AlignRight)
         layout2.addWidget(self.back_btn, alignment=Qt.AlignRight)
 
         layout3 = QHBoxLayout()

@@ -181,7 +181,8 @@ class ResultWindow(QWidget):
                         except (ValueError, ArithmeticError):
                             continue
 
-        self.output_table.setRowCount(0)  # 테이블 초기화
+        self.output_table.setRowCount(0)
+
         for _, freq, real, imag in data:
             row_position = self.output_table.rowCount()
             self.output_table.insertRow(row_position)
@@ -224,7 +225,7 @@ class ResultWindow(QWidget):
         self.frequency_input.setMinimumWidth(150)
         self.frequency_input.setMaximumWidth(450)
         self.frequency_input.setStyleSheet("background-color: white")
-        self.frequency_input.returnPressed.connect(self.SearchFrequency)
+        self.frequency_input.returnPressed.connect(self.SearchAndDisplayResults)
 
         self.ghz_label = QLabel('GHz')
 
@@ -242,7 +243,7 @@ class ResultWindow(QWidget):
         self.real_input.setMinimumWidth(90)
         self.real_input.setMaximumWidth(290)
         self.real_input.setStyleSheet("background-color: white")
-        self.real_input.returnPressed.connect(self.SearchReal)
+        self.real_input.returnPressed.connect(self.SearchAndDisplayResults)
 
         self.imaginary = QLabel('Imaginary')
         self.imaginary.setAlignment(Qt.AlignCenter)
@@ -258,7 +259,7 @@ class ResultWindow(QWidget):
         self.imaginary_input.setMinimumWidth(90)
         self.imaginary_input.setMaximumWidth(290)
         self.imaginary_input.setStyleSheet("background-color: white")
-        self.imaginary_input.returnPressed.connect(self.SearchImaginary)
+        self.imaginary_input.returnPressed.connect(self.SearchAndDisplayResults)
 
         self.back_btn = QPushButton('뒤로', self)
         self.back_btn.clicked.connect(self.Back)
@@ -290,11 +291,9 @@ class ResultWindow(QWidget):
         self.check_box2 = QCheckBox('real', self)
         self.check_box3 = QCheckBox('imaginary', self)
 
-    # 주파수 찾기
     def SearchFrequency(self):
         if not self.check_box1.isChecked():
-            QMessageBox.warning(self, "오류", "frequency 박스에 체크해주세요.")
-            return
+            return []
 
         try:
             freq_input = Decimal(self.frequency_input.text().strip())
@@ -306,36 +305,25 @@ class ResultWindow(QWidget):
                 precision = Decimal('0.0')
         except (ValueError, ArithmeticError):
             QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
-            return
+            return []
 
-        found = False
-        self.output_table.setRowCount(0)
-
+        results = []
         for path, content in self.file_cache.items():
             for line in content:
                 columns = line.strip().split()
                 if len(columns) > 1:
                     try:
                         file_freq = Decimal(columns[0])
-                        file_freq_trimmed = file_freq.quantize(precision, rounding=ROUND_FLOOR)
-                        if file_freq_trimmed == freq_input_trimmed:
-                            row_position = self.output_table.rowCount()
-                            self.output_table.insertRow(row_position)
-                            self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
-                            self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
-                            self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
-                            found = True
+                        if file_freq.quantize(precision, rounding=ROUND_FLOOR) == freq_input_trimmed:
+                            results.append((columns[0], columns[1], columns[2]))
                     except (ValueError, ArithmeticError):
                         continue
+        return results
 
-        if not found:
-            QMessageBox.information(self, "결과", "해당 주파수를 찾을 수 없습니다.")
-
-    # 실수부 찾기
     def SearchReal(self):
         if not self.check_box2.isChecked():
-            QMessageBox.warning(self, "오류", "real 박스에 체크해주세요.")
-            return
+            return []
+
         try:
             real_value = Decimal(self.real_input.text().strip())
             if real_value.as_tuple().exponent == 0:
@@ -349,71 +337,68 @@ class ResultWindow(QWidget):
                 precision = Decimal('0.00')
         except (ValueError, ArithmeticError):
             QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
-            return
+            return []
 
-        found = False
-        self.output_table.setRowCount(0)
-
+        results = []
         for path, content in self.file_cache.items():
             for line in content:
                 columns = line.strip().split()
                 if len(columns) > 2:
                     try:
                         file_real = Decimal(columns[1])
-                        file_real_trimmed = file_real.quantize(precision, rounding=ROUND_FLOOR)
-                        if file_real_trimmed == real_value_trimmed:
-                            row_position = self.output_table.rowCount()
-                            self.output_table.insertRow(row_position)
-                            self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
-                            self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
-                            self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
-                            self.result_real.append((columns[0], columns[1], columns[2]))
-                            found = True
+                        if file_real.quantize(precision, rounding=ROUND_FLOOR) == real_value_trimmed:
+                            results.append((columns[0], columns[1], columns[2]))
                     except (ValueError, ArithmeticError):
                         continue
+        return results
 
-        if not found:
-            QMessageBox.information(self, "결과", "해당 Real 값을 찾을 수 없습니다.")
-
-    # 허수부 찾기
     def SearchImaginary(self):
         if not self.check_box3.isChecked():
-            QMessageBox.warning(self, "오류", "imaginary 박스에 체크해주세요.")
-            return
+            return []
+
         try:
             imaginary_value = Decimal(self.imaginary_input.text().strip()) / Decimal(100)
             precision = Decimal('0.000')
 
             imaginary_value_trimmed = imaginary_value.quantize(precision, rounding=ROUND_FLOOR)
-
         except (ValueError, ArithmeticError):
             QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
-            return
+            return []
 
-        found = False
-        self.output_table.setRowCount(0)
-
+        results = []
         for path, content in self.file_cache.items():
             for line in content:
                 columns = line.strip().split()
                 if len(columns) > 2:
                     try:
                         file_imaginary = Decimal(columns[2])
-                        file_imaginary_trimmed = file_imaginary.quantize(precision, rounding=ROUND_FLOOR)
-
-                        if file_imaginary_trimmed == imaginary_value_trimmed:
-                            row_position = self.output_table.rowCount()
-                            self.output_table.insertRow(row_position)
-                            self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
-                            self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
-                            self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
-                            self.result.append((columns[0], columns[1], columns[2]))
-                            found = True
+                        if file_imaginary.quantize(precision, rounding=ROUND_FLOOR) == imaginary_value_trimmed:
+                            results.append((columns[0], columns[1], columns[2]))
                     except (ValueError, ArithmeticError):
                         continue
+        return results
 
-        if not found:
-            QMessageBox.information(self, "결과", "해당 Imaginary 값을 찾을 수 없습니다.")
+    def SearchAndDisplayResults(self):
+        if not (self.check_box1.isChecked() or self.check_box2.isChecked() or self.check_box3.isChecked()):
+            QMessageBox.warning(self, "오류", "검색을 원하는 박스에 체크해주세요.")
+            return
+
+        frequency_results = self.SearchFrequency() if self.check_box1.isChecked() else None
+        real_results = self.SearchReal() if self.check_box2.isChecked() else None
+        imaginary_results = self.SearchImaginary() if self.check_box3.isChecked() else None
+
+        if frequency_results is not None and real_results is not None and imaginary_results is not None:
+            intersected_results = [result for result in frequency_results if result in real_results and result in imaginary_results]
+        elif frequency_results is not None and real_results is not None:
+            intersected_results = [result for result in frequency_results if result in real_results]
+        elif frequency_results is not None and imaginary_results is not None:
+            intersected_results = [result for result in frequency_results if result in imaginary_results]
+        elif real_results is not None and imaginary_results is not None:
+            intersected_results = [result for result in real_results if result in imaginary_results]
+        else:
+            intersected_results = frequency_results or real_results or imaginary_results
+
+        self.DisplayResults(intersected_results)
 
     def DisplayResults(self, results):
         self.output_table.setRowCount(0)
@@ -424,8 +409,6 @@ class ResultWindow(QWidget):
                 self.output_table.setItem(row_position, 0, QTableWidgetItem(result[0]))
                 self.output_table.setItem(row_position, 1, QTableWidgetItem(result[1]))
                 self.output_table.setItem(row_position, 2, QTableWidgetItem(result[2]))
-        else:
-            QMessageBox.information(self, "결과", "조건에 맞는 데이터를 찾을 수 없습니다.")
 
     def Back(self):
         self.hide()
@@ -477,7 +460,7 @@ class ResultWindow(QWidget):
                 data.append(" ".join(row_data))
 
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)",options=options)
+            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)", options=options)
 
             if file_path:
                 try:

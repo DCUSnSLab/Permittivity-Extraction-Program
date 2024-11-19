@@ -55,6 +55,7 @@ class SetupWindow(QWidget):
         self.file_table = QTabWidget(self)
         self.file_table.setTabPosition(QTabWidget.North)
         self.file_table.setStyleSheet("QTabBar::tab { Height: 40px; width: 180px; }")
+
     # 파일 업로드 및 테이블 반영
     def FileOpen(self):
         options = QFileDialog.Options()

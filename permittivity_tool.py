@@ -17,9 +17,14 @@ class SetupWindow(QWidget):
 
     def initUI(self):
         self.setWindowTitle('Permittivity Extraction Program')
-        pixmap = QPixmap('SL.png')
-        self.la_img = QLabel()
-        self.la_img.setPixmap(pixmap)
+        pixmap1 = QPixmap('SL.png')
+        self.la_img1 = QLabel()
+        self.la_img1.setPixmap(pixmap1)
+
+        pixmap2 = QPixmap('DCU.png')
+        self.la_img2 = QLabel()
+        self.la_img2.setPixmap(pixmap2)
+
         self.show()
 
     def SetupUi(self):
@@ -125,7 +130,10 @@ class SetupWindow(QWidget):
     def Setup(self):
         layout1 = QHBoxLayout()
         layout1.addWidget(self.file_open_btn)
-        layout1.addWidget(self.la_img, alignment=Qt.AlignRight)
+        spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        layout1.addItem(spacer)
+        layout1.addWidget(self.la_img2, alignment=Qt.AlignRight)
+        layout1.addWidget(self.la_img1, alignment=Qt.AlignRight)
 
         layout2 = QHBoxLayout()
         layout2.addWidget(self.table)
@@ -183,17 +191,24 @@ class ResultWindow(QWidget):
 
     def initUI(self):
         self.setWindowTitle('Permittivity Extraction Program')
-        pixmap = QPixmap('SL.png')
-        self.la_img = QLabel()
-        self.la_img.setPixmap(pixmap)
+        pixmap1 = QPixmap('SL.png')
+        self.la_img1 = QLabel()
+        self.la_img1.setPixmap(pixmap1)
+
+        pixmap2 = QPixmap('DCU.png')
+        self.la_img2 = QLabel()
+        self.la_img2.setPixmap(pixmap2)
 
     def SetupUi(self):
         self.info_header = QLabel('정보')
         self.info_header.setAlignment(Qt.AlignCenter)
         self.info_header.setMinimumHeight(40)
         self.info_header.setMaximumHeight(60)
-        self.info_header.setMaximumWidth(760)
+        self.info_header.setMaximumWidth(890)
+        self.info_header.setMinimumWidth(790)
         self.info_header.setStyleSheet("background-color: #E8E8E8;")
+
+        self.info_header.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.frequency = QLabel('주파수 설정')
         self.frequency.setAlignment(Qt.AlignCenter)
@@ -217,8 +232,8 @@ class ResultWindow(QWidget):
         self.real.setAlignment(Qt.AlignCenter)
         self.real.setMinimumHeight(20)
         self.real.setMaximumHeight(40)
-        self.real.setMaximumWidth(300)
-        self.real.setMinimumWidth(70)
+        self.real.setMaximumWidth(310)
+        self.real.setMinimumWidth(90)
         self.real.setStyleSheet("background-color: #E8E8E8;")
 
         self.real_input = QLineEdit()
@@ -232,9 +247,9 @@ class ResultWindow(QWidget):
         self.imaginary = QLabel('Imaginary')
         self.imaginary.setAlignment(Qt.AlignCenter)
         self.imaginary.setMinimumHeight(20)
-        self.imaginary.setMaximumHeight(100)
-        self.imaginary.setMaximumWidth(300)
-        self.imaginary.setMinimumWidth(80)
+        self.imaginary.setMaximumHeight(40)
+        self.imaginary.setMaximumWidth(310)
+        self.imaginary.setMinimumWidth(90)
         self.imaginary.setStyleSheet("background-color: #E8E8E8;")
 
         self.imaginary_input = QLineEdit()
@@ -478,7 +493,10 @@ class ResultWindow(QWidget):
     def Setup(self):
         layout1 = QHBoxLayout()
         layout1.addWidget(self.info_header)
-        layout1.addWidget(self.la_img, alignment=Qt.AlignRight)
+        spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        layout1.addItem(spacer)
+        layout1.addWidget(self.la_img2, alignment=Qt.AlignRight)
+        layout1.addWidget(self.la_img1, alignment=Qt.AlignRight)
 
         freq_input_layout = QHBoxLayout()
         freq_input_layout.addWidget(self.frequency_input, alignment=Qt.AlignLeft)
@@ -499,10 +517,9 @@ class ResultWindow(QWidget):
         check_box = QGroupBox()
         check_box.setLayout(check_input_layout)
         check_box.setStyleSheet("background-color: #E8E8E8")
-        freq_box.setMinimumWidth(100)
+        freq_box.setMinimumWidth(150)
         freq_box.setMaximumWidth(450)
-        freq_box.setMaximumHeight(40)
-
+        freq_box.setMaximumHeight(60)
 
         layout2 = QHBoxLayout()
         layout2.addWidget(self.frequency)

@@ -17,6 +17,7 @@ class SetupWindow(QWidget):
 
     def initUI(self):
         self.setWindowTitle('Permittivity Extraction Program')
+
         pixmap1 = QPixmap('SL.png')
         self.la_img1 = QLabel()
         self.la_img1.setPixmap(pixmap1)
@@ -24,7 +25,6 @@ class SetupWindow(QWidget):
         pixmap2 = QPixmap('DCU.png')
         self.la_img2 = QLabel()
         self.la_img2.setPixmap(pixmap2)
-
         self.show()
 
     def SetupUi(self):
@@ -55,7 +55,6 @@ class SetupWindow(QWidget):
         self.file_table = QTabWidget(self)
         self.file_table.setTabPosition(QTabWidget.North)
         self.file_table.setStyleSheet("QTabBar::tab { Height: 40px; width: 180px; }")
-
     # 파일 업로드 및 테이블 반영
     def FileOpen(self):
         options = QFileDialog.Options()
@@ -115,8 +114,6 @@ class SetupWindow(QWidget):
                 data.append(row_data)
 
             new_data = data[::-1]
-            be_file_data = self.file_data
-            self.file_data = be_file_data[::-1]
 
             for row, value in enumerate(new_data):
                 self.table.setItem(row, 1, QTableWidgetItem(value))
@@ -170,26 +167,26 @@ class ResultWindow(QWidget):
 
     def DisplayAllData(self):
         data = []
-        for path in self.file_paths:
-            if path in self.file_cache:
-                content = self.file_cache[path]
-                for line in content:
-                    columns = line.strip().split()
-                    if len(columns) > 2:
-                        try:
-                            frequency = Decimal(columns[0])
-                            data.append((frequency, columns[0], columns[1], columns[2]))
-                        except (ValueError, ArithmeticError):
-                            continue
+        for path, content in self.file_cache.items():
+            for line in content:
+                columns = line.strip().split()
+                if len(columns) > 2:
+                    try:
+                        frequency = Decimal(columns[0])
+                        data.append((frequency, columns[0], columns[1], columns[2]))
+                    except (ValueError, ArithmeticError):
+                        continue
 
-        self.output_table.setRowCount(0)
+        data.sort(key=lambda x: x[0])
 
+        self.output_table.setRowCount(0)  # 테이블 초기화
         for _, freq, real, imag in data:
             row_position = self.output_table.rowCount()
             self.output_table.insertRow(row_position)
             self.output_table.setItem(row_position, 0, QTableWidgetItem(freq))
             self.output_table.setItem(row_position, 1, QTableWidgetItem(real))
             self.output_table.setItem(row_position, 2, QTableWidgetItem(imag))
+
 
     def initUI(self):
         self.setWindowTitle('Permittivity Extraction Program')
@@ -206,11 +203,9 @@ class ResultWindow(QWidget):
         self.info_header.setAlignment(Qt.AlignCenter)
         self.info_header.setMinimumHeight(40)
         self.info_header.setMaximumHeight(60)
-        self.info_header.setMaximumWidth(890)
-        self.info_header.setMinimumWidth(790)
+        self.info_header.setMaximumWidth(800)
+        self.info_header.setMinimumWidth(760)
         self.info_header.setStyleSheet("background-color: #E8E8E8;")
-
-        self.info_header.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self.frequency = QLabel('주파수 설정')
         self.frequency.setAlignment(Qt.AlignCenter)
@@ -226,7 +221,7 @@ class ResultWindow(QWidget):
         self.frequency_input.setMinimumWidth(150)
         self.frequency_input.setMaximumWidth(450)
         self.frequency_input.setStyleSheet("background-color: white")
-        self.frequency_input.returnPressed.connect(self.SearchAndDisplayResults)
+        self.frequency_input.returnPressed.connect(self.SearchFrequency)
 
         self.ghz_label = QLabel('GHz')
 
@@ -234,33 +229,31 @@ class ResultWindow(QWidget):
         self.real.setAlignment(Qt.AlignCenter)
         self.real.setMinimumHeight(20)
         self.real.setMaximumHeight(40)
-        self.real.setMaximumWidth(310)
-        self.real.setMinimumWidth(90)
+        self.real.setMaximumWidth(300)
+        self.real.setMinimumWidth(110)
         self.real.setStyleSheet("background-color: #E8E8E8;")
 
-        self.real_input = QLineEdit()
+        self.real_input = QLabel()
         self.real_input.setMinimumHeight(20)
         self.real_input.setMaximumHeight(40)
-        self.real_input.setMinimumWidth(90)
+        self.real_input.setMinimumWidth(250)
         self.real_input.setMaximumWidth(290)
         self.real_input.setStyleSheet("background-color: white")
-        self.real_input.returnPressed.connect(self.SearchAndDisplayResults)
 
         self.imaginary = QLabel('Imaginary')
         self.imaginary.setAlignment(Qt.AlignCenter)
         self.imaginary.setMinimumHeight(20)
         self.imaginary.setMaximumHeight(40)
-        self.imaginary.setMaximumWidth(310)
-        self.imaginary.setMinimumWidth(90)
+        self.imaginary.setMaximumWidth(300)
+        self.imaginary.setMinimumWidth(120)
         self.imaginary.setStyleSheet("background-color: #E8E8E8;")
 
-        self.imaginary_input = QLineEdit()
+        self.imaginary_input = QLabel()
         self.imaginary_input.setMinimumHeight(20)
         self.imaginary_input.setMaximumHeight(40)
-        self.imaginary_input.setMinimumWidth(90)
+        self.imaginary_input.setMinimumWidth(250)
         self.imaginary_input.setMaximumWidth(290)
         self.imaginary_input.setStyleSheet("background-color: white")
-        self.imaginary_input.returnPressed.connect(self.SearchAndDisplayResults)
 
         self.back_btn = QPushButton('뒤로', self)
         self.back_btn.clicked.connect(self.Back)
@@ -288,14 +281,8 @@ class ResultWindow(QWidget):
         self.output_table.setSelectionMode(QTableWidget.NoSelection)
         self.output_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
-        self.check_box1 = QCheckBox('frequency', self)
-        self.check_box2 = QCheckBox('real', self)
-        self.check_box3 = QCheckBox('imaginary', self)
-
+    # 주파수 찾기
     def SearchFrequency(self):
-        if not self.check_box1.isChecked():
-            return []
-
         try:
             freq_input = Decimal(self.frequency_input.text().strip())
             if freq_input.as_tuple().exponent == 0:
@@ -306,110 +293,36 @@ class ResultWindow(QWidget):
                 precision = Decimal('0.0')
         except (ValueError, ArithmeticError):
             QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
-            return []
+            return
 
-        results = []
+        found = False
+        self.output_table.setRowCount(0)
+
         for path, content in self.file_cache.items():
             for line in content:
                 columns = line.strip().split()
                 if len(columns) > 1:
                     try:
                         file_freq = Decimal(columns[0])
-                        if file_freq.quantize(precision, rounding=ROUND_FLOOR) == freq_input_trimmed:
-                            results.append((columns[0], columns[1], columns[2]))
+                        file_freq_trimmed = file_freq.quantize(precision, rounding=ROUND_FLOOR)
+                        if file_freq_trimmed == freq_input_trimmed:
+                            if not found:
+                                self.real_input.setText(columns[1])
+                                self.imaginary_input.setText(columns[2])
+                                found = True
+
+                            row_position = self.output_table.rowCount()
+                            self.output_table.insertRow(row_position)
+                            self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
+                            self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
+                            self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
                     except (ValueError, ArithmeticError):
                         continue
-        return results
 
-    def SearchReal(self):
-        if not self.check_box2.isChecked():
-            return []
-
-        try:
-            real_value = Decimal(self.real_input.text().strip())
-            if real_value.as_tuple().exponent == 0:
-                real_value_trimmed = real_value.quantize(Decimal('0'), rounding=ROUND_FLOOR)
-                precision = Decimal('0')
-            elif real_value.as_tuple().exponent == -1:
-                real_value_trimmed = real_value.quantize(Decimal('0.0'), rounding=ROUND_FLOOR)
-                precision = Decimal('0.0')
-            else:
-                real_value_trimmed = real_value.quantize(Decimal('0.00'), rounding=ROUND_FLOOR)
-                precision = Decimal('0.00')
-        except (ValueError, ArithmeticError):
-            QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
-            return []
-
-        results = []
-        for path, content in self.file_cache.items():
-            for line in content:
-                columns = line.strip().split()
-                if len(columns) > 2:
-                    try:
-                        file_real = Decimal(columns[1])
-                        if file_real.quantize(precision, rounding=ROUND_FLOOR) == real_value_trimmed:
-                            results.append((columns[0], columns[1], columns[2]))
-                    except (ValueError, ArithmeticError):
-                        continue
-        return results
-
-    def SearchImaginary(self):
-        if not self.check_box3.isChecked():
-            return []
-
-        try:
-            imaginary_value = Decimal(self.imaginary_input.text().strip()) / Decimal(100)
-            precision = Decimal('0.000')
-
-            imaginary_value_trimmed = imaginary_value.quantize(precision, rounding=ROUND_FLOOR)
-        except (ValueError, ArithmeticError):
-            QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
-            return []
-
-        results = []
-        for path, content in self.file_cache.items():
-            for line in content:
-                columns = line.strip().split()
-                if len(columns) > 2:
-                    try:
-                        file_imaginary = Decimal(columns[2])
-                        if file_imaginary.quantize(precision, rounding=ROUND_FLOOR) == imaginary_value_trimmed:
-                            results.append((columns[0], columns[1], columns[2]))
-                    except (ValueError, ArithmeticError):
-                        continue
-        return results
-
-    def SearchAndDisplayResults(self):
-        if not (self.check_box1.isChecked() or self.check_box2.isChecked() or self.check_box3.isChecked()):
-            QMessageBox.warning(self, "오류", "검색을 원하는 박스에 체크해주세요.")
-            return
-
-        frequency_results = self.SearchFrequency() if self.check_box1.isChecked() else None
-        real_results = self.SearchReal() if self.check_box2.isChecked() else None
-        imaginary_results = self.SearchImaginary() if self.check_box3.isChecked() else None
-
-        if frequency_results is not None and real_results is not None and imaginary_results is not None:
-            intersected_results = [result for result in frequency_results if result in real_results and result in imaginary_results]
-        elif frequency_results is not None and real_results is not None:
-            intersected_results = [result for result in frequency_results if result in real_results]
-        elif frequency_results is not None and imaginary_results is not None:
-            intersected_results = [result for result in frequency_results if result in imaginary_results]
-        elif real_results is not None and imaginary_results is not None:
-            intersected_results = [result for result in real_results if result in imaginary_results]
-        else:
-            intersected_results = frequency_results or real_results or imaginary_results
-
-        self.DisplayResults(intersected_results)
-
-    def DisplayResults(self, results):
-        self.output_table.setRowCount(0)
-        if results:
-            for result in results:
-                row_position = self.output_table.rowCount()
-                self.output_table.insertRow(row_position)
-                self.output_table.setItem(row_position, 0, QTableWidgetItem(result[0]))
-                self.output_table.setItem(row_position, 1, QTableWidgetItem(result[1]))
-                self.output_table.setItem(row_position, 2, QTableWidgetItem(result[2]))
+        if not found:
+            self.real_input.setText(" ")
+            self.imaginary_input.setText(" ")
+            QMessageBox.information(self, "결과", "해당 주파수를 찾을 수 없습니다.")
 
     def Back(self):
         self.hide()
@@ -461,7 +374,7 @@ class ResultWindow(QWidget):
                 data.append(" ".join(row_data))
 
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)", options=options)
+            file_path, _ = QFileDialog.getSaveFileName(self, "텍스트 파일로 저장", "", "Text Files (*.txt);;All Files (*)",options=options)
 
             if file_path:
                 try:
@@ -493,22 +406,9 @@ class ResultWindow(QWidget):
         freq_box.setMaximumWidth(450)
         freq_box.setMaximumHeight(40)
 
-        check_input_layout = QVBoxLayout()
-        check_input_layout.addWidget(self.check_box1)
-        check_input_layout.addWidget(self.check_box2)
-        check_input_layout.addWidget(self.check_box3)
-
-        check_box = QGroupBox()
-        check_box.setLayout(check_input_layout)
-        check_box.setStyleSheet("background-color: #E8E8E8")
-        freq_box.setMinimumWidth(150)
-        freq_box.setMaximumWidth(450)
-        freq_box.setMaximumHeight(60)
-
         layout2 = QHBoxLayout()
         layout2.addWidget(self.frequency)
         layout2.addWidget(freq_box)
-        layout2.addWidget(check_box, alignment=Qt.AlignLeft)
         layout2.addWidget(self.back_btn, alignment=Qt.AlignRight)
 
         layout3 = QHBoxLayout()

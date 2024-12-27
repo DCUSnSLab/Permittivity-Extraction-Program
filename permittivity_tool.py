@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from decimal import Decimal, ROUND_FLOOR
+from functools import partial
 
 # 시작화면
 class SetupWindow(QWidget):
@@ -11,6 +12,7 @@ class SetupWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.file_data = []
+        self.result_window = None
         self.initUI()
         self.SetupUi()
         self.Setup()
@@ -36,8 +38,9 @@ class SetupWindow(QWidget):
 
         # 파일 테이블
         self.table = QTableWidget(self)
-        self.table.setColumnCount(2)
-        self.table.setHorizontalHeaderLabels(['▼', '업로드된 파일'])
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(['전체삭제','▼', '업로드된 파일'])
+        self.table.horizontalHeader().sectionClicked.connect(self.AllDelete)
         self.table.horizontalHeader().sectionClicked.connect(self.Direction) # layer 방향 조절(text)
         self.table.horizontalHeader().sectionClicked.connect(self.LayerSort) # layer 방향 조절
         self.table.horizontalHeader().setStretchLastSection(True) # 가장 뒤에 있는 열을 끝까지 공간 채우기
@@ -55,22 +58,27 @@ class SetupWindow(QWidget):
         self.file_table = QTabWidget(self)
         self.file_table.setTabPosition(QTabWidget.North)
         self.file_table.setStyleSheet("QTabBar::tab { Height: 40px; width: 180px; }")
+
     # 파일 업로드 및 테이블 반영
     def FileOpen(self):
         options = QFileDialog.Options()
         files, _ = QFileDialog.getOpenFileNames(self, "Select Files", "", "All Files (*);;Text Files (*.txt)", options=options)
 
         if files:
-            self.table.setRowCount(len(files))
-            self.file_data = []
+            new_files = [file for file in files if file not in self.file_data]
+            self.file_data.extend(new_files)
 
-            for i, file in enumerate(files):
-                self.file_data.append(file)
-                self.table.setItem(i, 0, QTableWidgetItem('Layer'+ str(i+1)))
-                self.table.setItem(i, 1, QTableWidgetItem(file.split('/')[-1]))
+            current_row_count = self.table.rowCount()
+            self.table.setRowCount(current_row_count + len(new_files))
 
-            for f in files:
-                self.AddNewPage(f)
+            for i, file in enumerate(new_files, start=current_row_count):
+                delete_button = QPushButton('삭제', self)
+                delete_button.clicked.connect(self.LayerDelete)
+                self.table.setCellWidget(i, 0, delete_button)
+                self.table.setItem(i, 1, QTableWidgetItem(f'Layer {i + 1}'))
+                self.table.setItem(i, 2, QTableWidgetItem(file.split('/')[-1]))
+
+                self.AddNewPage(file)
 
     # 파일 내용 출력
     def AddNewPage(self, f):
@@ -96,9 +104,36 @@ class SetupWindow(QWidget):
 
         self.file_table.addTab(text_edit, f.split('/')[-1])
 
+    #layer 전체 삭제
+    def AllDelete(self, index):
+        if index == 0:
+            self.table.setRowCount(0)
+            self.table.horizontalHeaderItem(1).setText('▼')
+            if len(self.file_table) != 0:
+                while len(self.file_table) != 0:
+                    self.file_table.removeTab(0)
+            self.file_data.clear()
+
+    #layer 개별 삭제
+    def LayerDelete(self):
+        sender = self.sender()
+        for row in range(self.table.rowCount()):
+            if self.table.cellWidget(row,0) == sender:
+                file_name = self.table.item(row,2).text()
+                self.table.removeRow(row)
+                del self.file_data[row]
+
+                for index in range(self.file_table.count()):
+                    if self.file_table.tabText(index) == file_name:
+                        self.file_table.removeTab(index)
+                        break
+
+
+            self.table.setItem(row, 1, QTableWidgetItem('Layer' + str(row + 1)))
+
     #layer 방향 선택(text)
     def Direction(self, index):
-        if index == 0:
+        if index == 1:
             current_text = self.table.horizontalHeaderItem(index).text()
             if current_text == '▼':
                 self.table.horizontalHeaderItem(index).setText('▲')
@@ -106,23 +141,24 @@ class SetupWindow(QWidget):
                 self.table.horizontalHeaderItem(index).setText('▼')
 
     def LayerSort(self, index):
-        if index == 0:  # 두 번째 열 클릭 시만 작동
+        if index == 1:  # 두 번째 열 클릭 시만 작동
             # 현재 테이블 데이터를 추출하여 리스트로 저장
             data = []
             for row in range(self.table.rowCount()):
-                row_data = self.table.item(row, 1).text()
+                row_data = self.table.item(row, 2).text()
                 data.append(row_data)
 
             new_data = data[::-1]
+            self.file_data.reverse()
 
             for row, value in enumerate(new_data):
-                self.table.setItem(row, 1, QTableWidgetItem(value))
+                self.table.setItem(row, 2, QTableWidgetItem(value))
 
     def Start(self):
+        self.result_window = ResultWindow(file_paths=self.file_data, setup_window=self)
         self.hide()
-        self.result = ResultWindow(file_paths=self.file_data)
-        self.result.resize(self.size())
-        self.result.show()
+        self.result_window.resize(self.size())
+        self.result_window.show()
 
     # gui 위치 조정
     def Setup(self):
@@ -137,7 +173,6 @@ class SetupWindow(QWidget):
         layout2.addWidget(self.table)
         layout2.addWidget(self.start_btn, alignment=Qt.AlignBottom)
 
-
         layout = QVBoxLayout()
         layout.addLayout(layout1)
         layout.addLayout(layout2)
@@ -147,13 +182,19 @@ class SetupWindow(QWidget):
 
 # 결과화면
 class ResultWindow(QWidget):
-    def __init__(self, file_paths=None):
+    def __init__(self, file_paths=None, setup_window=None):
         super().__init__()
         self.file_paths = file_paths
         self.file_cache = {}
+        self.setup_window = setup_window
         self.initUI()
         self.SetupUi()
         self.Setup()
+
+        self.LoadFileData()
+
+    def LoadFileData(self):
+        self.file_cache.clear()
 
         if self.file_paths:
             for path in self.file_paths:
@@ -281,6 +322,11 @@ class ResultWindow(QWidget):
         self.output_table.setSelectionMode(QTableWidget.NoSelection)
         self.output_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
+        self.all_frequency_btn = QPushButton('전체 주파수', self)
+        self.all_frequency_btn.clicked.connect(self.AllFrequency)
+        self.all_frequency_btn.setMinimumHeight(60)
+        self.all_frequency_btn.setMinimumWidth(100)
+
     # 주파수 찾기
     def SearchFrequency(self):
         try:
@@ -326,13 +372,8 @@ class ResultWindow(QWidget):
 
     def Back(self):
         self.hide()
-        self.start = SetupWindow()
-        self.start.file_data = []
-        self.start.table.setRowCount(0)
-        self.start.file_table.clear()
-        self.start.resize(self.size())
-        self.start.move(self.pos())
-        self.start.show()
+        self.setup_window.resize(self.size())
+        self.setup_window.show()
 
     def SaveExcel(self):
         if self.output_table.rowCount() > 0:
@@ -387,6 +428,30 @@ class ResultWindow(QWidget):
         else:
             QMessageBox.warning(self, "오류", "저장할 출력 데이터가 없습니다.")
 
+    def AllFrequency(self):
+        self.output_table.setRowCount(0)
+        data = []
+
+        for path, content in self.file_cache.items():
+            for line in content:
+                columns = line.strip().split()
+                if len(columns) > 2:
+                    try:
+                        frequency = Decimal(columns[0])
+                        data.append((frequency, columns[0], columns[1], columns[2]))
+                    except (ValueError, ArithmeticError):
+                        continue
+
+        data.sort(key=lambda x: x[0])
+
+        for _, freq, real, imag in data:
+            row_position = self.output_table.rowCount()
+            self.output_table.insertRow(row_position)
+            self.output_table.setItem(row_position, 0, QTableWidgetItem(freq))
+            self.output_table.setItem(row_position, 1, QTableWidgetItem(real))
+            self.output_table.setItem(row_position, 2, QTableWidgetItem(imag))
+
+
     def Setup(self):
         layout1 = QHBoxLayout()
         layout1.addWidget(self.info_header)
@@ -409,6 +474,9 @@ class ResultWindow(QWidget):
         layout2 = QHBoxLayout()
         layout2.addWidget(self.frequency)
         layout2.addWidget(freq_box)
+        spacer = QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        layout2.addItem(spacer)
+        layout2.addWidget(self.all_frequency_btn, alignment=Qt.AlignRight)
         layout2.addWidget(self.back_btn, alignment=Qt.AlignRight)
 
         layout3 = QHBoxLayout()

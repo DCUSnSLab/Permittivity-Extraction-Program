@@ -428,6 +428,7 @@ class ResultWindow(QWidget):
         else:
             QMessageBox.warning(self, "오류", "저장할 출력 데이터가 없습니다.")
 
+    # 전체 주파수 출력
     def AllFrequency(self):
         self.output_table.setRowCount(0)
         data = []

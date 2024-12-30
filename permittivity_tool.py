@@ -4,7 +4,10 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import Qt
 from decimal import Decimal, ROUND_FLOOR
-from functools import partial
+
+import numpy as np
+from scipy.constants import pi
+from cmath import cos, sin, sqrt
 
 # 시작화면
 class SetupWindow(QWidget):
@@ -327,6 +330,55 @@ class ResultWindow(QWidget):
         self.all_frequency_btn.setMinimumHeight(60)
         self.all_frequency_btn.setMinimumWidth(100)
 
+    def calculator(self, data_f):
+        m_total = np.array([[1, 0], [0, 1]])
+        d_total = 0
+        f = 76.5 * 10 ** 9
+        lam = (3 * 10 ** 8) / f
+        z0 = 367.73
+
+        row_position = self.output_table.rowCount()
+
+        for i in range(len(data_f)):
+            try:
+                d0 = data_f[i][2]
+                er = data_f[i][0]
+                ei = data_f[i][1]
+
+                d = d0 * 10**(-3)
+                k = ((2 * pi) / lam) * sqrt(er - ei * 1j)
+                p = k * d
+                z = z0 * sqrt(1 / (er - ei * 1j))
+
+                A = cos(p)
+                B = z * sin(p) * 1j
+                C = (sin(p) * 1j) / z
+                D = cos(p)
+                M = np.array([[A, B], [C, D]])
+
+                m_total = m_total @ M
+                d_total += d
+
+                A_total = m_total[0, 0]
+                e_total = ((lam / (2 * pi)) * (np.arccos(A_total) / d_total)) ** 2
+                er_total = e_total.real
+                ei_total = -e_total.imag
+
+                self.output_table.insertRow(row_position)
+                self.output_table.setItem(row_position, 0, QTableWidgetItem(f"{data_f[i][3]}"))
+                self.output_table.setItem(row_position, 1, QTableWidgetItem(str(er_total)))
+                self.output_table.setItem(row_position, 2, QTableWidgetItem(str(ei_total)))
+                row_position += 1
+
+                self.output_table.resizeRowsToContents()
+                self.output_table.resizeColumnsToContents()
+
+            except Exception as e:
+                QMessageBox.warning(self, "계산 오류", f"계산 중 오류가 발생했습니다:\n{str(e)}")
+                break
+
+        return er_total, ei_total
+
     # 주파수 찾기
     def SearchFrequency(self):
         try:
@@ -343,32 +395,35 @@ class ResultWindow(QWidget):
 
         found = False
         self.output_table.setRowCount(0)
+        self.freq_cal = []
+        thickness = None
 
         for path, content in self.file_cache.items():
             for line in content:
                 columns = line.strip().split()
-                if len(columns) > 1:
-                    try:
-                        file_freq = Decimal(columns[0])
-                        file_freq_trimmed = file_freq.quantize(precision, rounding=ROUND_FLOOR)
-                        if file_freq_trimmed == freq_input_trimmed:
-                            if not found:
-                                self.real_input.setText(columns[1])
-                                self.imaginary_input.setText(columns[2])
-                                found = True
-
-                            row_position = self.output_table.rowCount()
-                            self.output_table.insertRow(row_position)
-                            self.output_table.setItem(row_position, 0, QTableWidgetItem(columns[0]))
-                            self.output_table.setItem(row_position, 1, QTableWidgetItem(columns[1]))
-                            self.output_table.setItem(row_position, 2, QTableWidgetItem(columns[2]))
-                    except (ValueError, ArithmeticError):
+                try:
+                    if "!thickness" in line:
+                        thickness = float(line.strip().split("=")[1])
                         continue
+
+                    file_freq = Decimal(columns[0])
+                    file_freq_trimmed = file_freq.quantize(precision, rounding=ROUND_FLOOR)
+                    if file_freq_trimmed == freq_input_trimmed:
+                        input_dd = [float(columns[1]), float(columns[2]), thickness, float(columns[0])]
+                        self.freq_cal.append(input_dd)
+                        found = True
+                except (ValueError, ArithmeticError):
+                    continue
 
         if not found:
             self.real_input.setText(" ")
             self.imaginary_input.setText(" ")
             QMessageBox.information(self, "결과", "해당 주파수를 찾을 수 없습니다.")
+            return
+
+        er_total, ei_total = self.calculator(self.freq_cal)
+        self.real_input.setText(f"{er_total}")
+        self.imaginary_input.setText(f"{ei_total}")
 
     def Back(self):
         self.hide()

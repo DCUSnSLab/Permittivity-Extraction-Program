@@ -14,8 +14,9 @@ class SetupWindow(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.file_data = []
         self.result_window = None
+        self.file_a = []
+        self.file_data = {}
         self.initUI()
         self.SetupUi()
         self.Setup()
@@ -62,50 +63,44 @@ class SetupWindow(QWidget):
         self.file_table.setTabPosition(QTabWidget.North)
         self.file_table.setStyleSheet("QTabBar::tab { Height: 40px; width: 180px; }")
 
-    # 파일 업로드 및 테이블 반영
     def FileOpen(self):
         options = QFileDialog.Options()
         files, _ = QFileDialog.getOpenFileNames(self, "Select Files", "", "All Files (*);;Text Files (*.txt)", options=options)
 
         if files:
-            new_files = [file for file in files if file not in self.file_data]
-            self.file_data.extend(new_files)
+            for file in files:
+                if file not in self.file_data:
+                    self.file_data[file] = None
+                    self.AddFileToTable(file)
 
-            current_row_count = self.table.rowCount()
-            self.table.setRowCount(current_row_count + len(new_files))
+    def AddFileToTable(self, file):
+        current_row_count = self.table.rowCount()
+        self.table.setRowCount(current_row_count + 1)
 
-            for i, file in enumerate(new_files, start=current_row_count):
-                delete_button = QPushButton('삭제', self)
-                delete_button.clicked.connect(self.LayerDelete)
-                self.table.setCellWidget(i, 0, delete_button)
-                self.table.setItem(i, 1, QTableWidgetItem(f'Layer {i + 1}'))
-                self.table.setItem(i, 2, QTableWidgetItem(file.split('/')[-1]))
+        # 삭제 버튼 추가
+        delete_button = QPushButton('삭제', self)
+        delete_button.clicked.connect(self.LayerDelete)
+        self.table.setCellWidget(current_row_count, 0, delete_button)
+        self.table.setItem(current_row_count, 1, QTableWidgetItem(f'Layer {current_row_count + 1}'))
+        self.table.setItem(current_row_count, 2, QTableWidgetItem(file.split('/')[-1]))
 
-                self.AddNewPage(file)
+        self.AddNewPage(file)
 
-    # 파일 내용 출력
-    def AddNewPage(self, f):
+    def AddNewPage(self, file):
         try:
-            with open(f, 'r', encoding='utf-8') as file:
-                contents = file.read()
-        except FileNotFoundError:
-            print('파일이 존재하지 않거나 경로가 잘못되었습니다.')
-            return
-        except PermissionError:
-            print('파일에 대한 접근 권한이 없습니다.')
-            return
-        except UnicodeDecodeError:
-            print('파일의 인코딩이 맞지 않습니다.')
-            return
-        except IOError:
-            print('파일 읽기 중 문제가 발생하였습니다.')
+            with open(file, 'r', encoding='utf-8') as f:
+                contents = f.read()
+                self.file_data[file] = contents
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"파일 읽기 중 문제가 발생했습니다: {e}")
             return
 
+        # 내용 표시를 위한 QTextEdit 추가
         text_edit = QTextEdit()
         text_edit.setText(contents)
         text_edit.setReadOnly(True)
 
-        self.file_table.addTab(text_edit, f.split('/')[-1])
+        self.file_table.addTab(text_edit, file.split('/')[-1])
 
     #layer 전체 삭제
     def AllDelete(self, index):
@@ -121,18 +116,21 @@ class SetupWindow(QWidget):
     def LayerDelete(self):
         sender = self.sender()
         for row in range(self.table.rowCount()):
-            if self.table.cellWidget(row,0) == sender:
-                file_name = self.table.item(row,2).text()
+            if self.table.cellWidget(row, 0) == sender:
+                file_name = self.table.item(row, 2).text()
+                file_path = [key for key, value in self.file_data.items() if file_name in key]
+
+                if file_path:
+                    del self.file_data[file_path[0]]
+
                 self.table.removeRow(row)
-                del self.file_data[row]
 
                 for index in range(self.file_table.count()):
                     if self.file_table.tabText(index) == file_name:
                         self.file_table.removeTab(index)
                         break
 
-
-            self.table.setItem(row, 1, QTableWidgetItem('Layer' + str(row + 1)))
+                break
 
     #layer 방향 선택(text)
     def Direction(self, index):
@@ -144,18 +142,22 @@ class SetupWindow(QWidget):
                 self.table.horizontalHeaderItem(index).setText('▼')
 
     def LayerSort(self, index):
-        if index == 1:  # 두 번째 열 클릭 시만 작동
-            # 현재 테이블 데이터를 추출하여 리스트로 저장
-            data = []
-            for row in range(self.table.rowCount()):
-                row_data = self.table.item(row, 2).text()
-                data.append(row_data)
+        if index == 1:
+            current_keys = list(self.file_data.keys())
+            sorted_keys = current_keys[::-1]
 
-            new_data = data[::-1]
-            self.file_data.reverse()
+            self.file_data = {key: self.file_data[key] for key in sorted_keys}
 
-            for row, value in enumerate(new_data):
-                self.table.setItem(row, 2, QTableWidgetItem(value))
+            self.table.setRowCount(0)
+            for file in sorted_keys:
+                current_row_count = self.table.rowCount()
+                self.table.setRowCount(current_row_count + 1)
+
+                delete_button = QPushButton('삭제', self)
+                delete_button.clicked.connect(self.LayerDelete)
+                self.table.setCellWidget(current_row_count, 0, delete_button)
+                self.table.setItem(current_row_count, 1, QTableWidgetItem(f'Layer {current_row_count + 1}'))
+                self.table.setItem(current_row_count, 2, QTableWidgetItem(file.split('/')[-1]))
 
     def Start(self):
         self.result_window = ResultWindow(file_paths=self.file_data, setup_window=self)
@@ -325,80 +327,89 @@ class ResultWindow(QWidget):
         self.output_table.setSelectionMode(QTableWidget.NoSelection)
         self.output_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
+        self.synthesis1 = QLabel('합성행렬')
+        self.synthesis1.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.synthesis1.setMinimumHeight(100)
+        self.synthesis1.setMinimumWidth(700)
+        self.synthesis1.setStyleSheet("border: 1px solid black; background-color: white; font-size: 20px;")
+        self.synthesis1.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
+        self.synthesis2 = QLabel('합성유전율')
+        self.synthesis2.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.synthesis2.setMinimumHeight(100)
+        self.synthesis2.setMinimumWidth(700)
+        self.synthesis2.setStyleSheet("border: 1px solid black; background-color: white; font-size: 20px;")
+        self.synthesis2.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
         self.all_frequency_btn = QPushButton('전체 주파수', self)
         self.all_frequency_btn.clicked.connect(self.AllFrequency)
         self.all_frequency_btn.setMinimumHeight(60)
         self.all_frequency_btn.setMinimumWidth(100)
 
     def calculator(self, data_f):
+        f = 76.51 * 10**9
+        lam = (3 * 10**8) / f
+        z0 = 367.73
+        m = []
         m_total = np.array([[1, 0], [0, 1]])
         d_total = 0
-        f = 76.5 * 10 ** 9
-        lam = (3 * 10 ** 8) / f
-        z0 = 367.73
 
         row_position = self.output_table.rowCount()
 
         for i in range(len(data_f)):
-            try:
-                d0 = data_f[i][2]
-                er = data_f[i][0]
-                ei = data_f[i][1]
+            er = data_f[i][0]
+            ei = data_f[i][1]
+            d0 = data_f[i][2]
 
-                d = d0 * 10**(-3)
-                k = ((2 * pi) / lam) * sqrt(er - ei * 1j)
-                p = k * d
-                z = z0 * sqrt(1 / (er - ei * 1j))
+            th = d0 * 10 ** (-3)
 
-                A = cos(p)
-                B = z * sin(p) * 1j
-                C = (sin(p) * 1j) / z
-                D = cos(p)
-                M = np.array([[A, B], [C, D]])
+            k1 = ((2 * pi) / lam) * sqrt(er - ei * 1j)
+            p1 = k1 * th
+            z1 = z0 * sqrt(1 / (er - ei * 1j))
 
-                m_total = m_total @ M
-                d_total += d
+            a1 = cos(p1)
+            b1 = z1 * sin(p1) * 1j
+            c1 = (sin(p1) * 1j) / z1
+            d1 = cos(p1)
+            m0 = np.array([[a1, b1], [c1, d1]])
+            m_total = m_total @ m0
 
-                A_total = m_total[0, 0]
-                e_total = ((lam / (2 * pi)) * (np.arccos(A_total) / d_total)) ** 2
-                er_total = e_total.real
-                ei_total = -e_total.imag
+            d_total = d_total + th
 
-                self.output_table.insertRow(row_position)
-                self.output_table.setItem(row_position, 0, QTableWidgetItem(f"{data_f[i][3]}"))
-                self.output_table.setItem(row_position, 1, QTableWidgetItem(str(er_total)))
-                self.output_table.setItem(row_position, 2, QTableWidgetItem(str(ei_total)))
-                row_position += 1
+            a_total = m_total[0,0]
+            e_total = ( ( lam / (2*pi) ) * ( np.arccos(a_total) / d_total) )**2
 
-                self.output_table.resizeRowsToContents()
-                self.output_table.resizeColumnsToContents()
+            er_total = e_total.real
+            ei_total = e_total.imag
 
-            except Exception as e:
-                QMessageBox.warning(self, "계산 오류", f"계산 중 오류가 발생했습니다:\n{str(e)}")
-                break
+            self.output_table.insertRow(row_position)
+            self.output_table.setItem(row_position, 0, QTableWidgetItem(f"{data_f[i][3]}"))
+            self.output_table.setItem(row_position, 1, QTableWidgetItem(str(er_total)))
+            self.output_table.setItem(row_position, 2, QTableWidgetItem(str(ei_total)))
+            row_position += 1
 
-        return er_total, ei_total
+            self.output_table.resizeRowsToContents()
+            self.output_table.resizeColumnsToContents()
+
+        return m_total, e_total
 
     # 주파수 찾기
     def SearchFrequency(self):
         try:
             freq_input = Decimal(self.frequency_input.text().strip())
-            if freq_input.as_tuple().exponent == 0:
-                freq_input_trimmed = freq_input.quantize(Decimal('0'), rounding=ROUND_FLOOR)
-                precision = Decimal('0')
-            else:
-                freq_input_trimmed = freq_input.quantize(Decimal('0.0'), rounding=ROUND_FLOOR)
-                precision = Decimal('0.0')
         except (ValueError, ArithmeticError):
             QMessageBox.warning(self, "오류", "유효한 숫자를 입력하세요.")
             return
 
-        found = False
         self.output_table.setRowCount(0)
         self.freq_cal = []
-        thickness = None
 
-        for path, content in self.file_cache.items():
+        for file_path, content in self.file_cache.items():
+            closest_freq = None
+            closest_row = None
+            min_diff = Decimal('Infinity')
+            thickness = None
+
             for line in content:
                 columns = line.strip().split()
                 try:
@@ -407,23 +418,32 @@ class ResultWindow(QWidget):
                         continue
 
                     file_freq = Decimal(columns[0])
-                    file_freq_trimmed = file_freq.quantize(precision, rounding=ROUND_FLOOR)
-                    if file_freq_trimmed == freq_input_trimmed:
-                        input_dd = [float(columns[1]), float(columns[2]), thickness, float(columns[0])]
-                        self.freq_cal.append(input_dd)
-                        found = True
+                    diff = abs(file_freq - freq_input)
+                    if diff < min_diff:
+                        min_diff = diff
+                        closest_freq = file_freq
+                        closest_row = columns
                 except (ValueError, ArithmeticError):
                     continue
 
-        if not found:
-            self.real_input.setText(" ")
-            self.imaginary_input.setText(" ")
-            QMessageBox.information(self, "결과", "해당 주파수를 찾을 수 없습니다.")
-            return
+            if closest_row and thickness is not None:
+                input_dd = [float(closest_row[1]), float(closest_row[2]), thickness, float(closest_row[0])]
+                self.freq_cal.append(input_dd)
 
-        er_total, ei_total = self.calculator(self.freq_cal)
-        self.real_input.setText(f"{er_total}")
-        self.imaginary_input.setText(f"{ei_total}")
+        closest_real, closest_imag = None, None
+        min_diff = float('inf')
+        for real, imag, _, freq in self.freq_cal:
+            diff = abs(freq - float(freq_input))
+            if diff < min_diff:
+                min_diff = diff
+                closest_real = real
+                closest_imag = imag
+                self.real_input.setText(f"{closest_real}")
+                self.imaginary_input.setText(f"{closest_imag}")
+
+        m_total, e_total= self.calculator(self.freq_cal)
+        self.synthesis1.setText(f"합성행렬\n\n{m_total}")
+        self.synthesis2.setText(f"합성유전율\n\n{e_total}")
 
     def Back(self):
         self.hide()
@@ -443,8 +463,7 @@ class ResultWindow(QWidget):
             df = pd.DataFrame(data, columns=['Frequency [GHz]', 'Real', 'Imaginary'])
 
             options = QFileDialog.Options()
-            file_path, _ = QFileDialog.getSaveFileName(self, "Excel 파일로 저장", "", "Excel Files (*.xlsx);;All Files (*)",
-                                                       options=options)
+            file_path, _ = QFileDialog.getSaveFileName(self, "Excel 파일로 저장", "", "Excel Files (*.xlsx);;All Files (*)", options=options)
 
             if file_path:
                 try:
@@ -486,27 +505,36 @@ class ResultWindow(QWidget):
     # 전체 주파수 출력
     def AllFrequency(self):
         self.output_table.setRowCount(0)
-        data = []
+        self.all_frequencies = {}
 
         for path, content in self.file_cache.items():
+            file_data = []
+            thickness = None
+
             for line in content:
                 columns = line.strip().split()
-                if len(columns) > 2:
-                    try:
-                        frequency = Decimal(columns[0])
-                        data.append((frequency, columns[0], columns[1], columns[2]))
-                    except (ValueError, ArithmeticError):
+                try:
+                    if "!thickness" in line:
+                        thickness = float(line.strip().split("=")[1])
                         continue
 
-        data.sort(key=lambda x: x[0])
+                    if len(columns) > 2:
+                        frequency = Decimal(columns[0])
+                        real = float(columns[1])
+                        imag = float(columns[2])
 
-        for _, freq, real, imag in data:
-            row_position = self.output_table.rowCount()
-            self.output_table.insertRow(row_position)
-            self.output_table.setItem(row_position, 0, QTableWidgetItem(freq))
-            self.output_table.setItem(row_position, 1, QTableWidgetItem(real))
-            self.output_table.setItem(row_position, 2, QTableWidgetItem(imag))
+                        file_data.append((real, imag, thickness, float(frequency)))
 
+                except (ValueError, ArithmeticError):
+                    continue
+
+            self.all_frequencies[path] = file_data
+
+        m_total, e_total= self.calculator(file_data)
+        self.real_input.setText(f" ")
+        self.imaginary_input.setText(f" ")
+        self.synthesis1.setText(f"합성행렬\n\n{m_total}")
+        self.synthesis2.setText(f"합성유전율\n\n{e_total}")
 
     def Setup(self):
         layout1 = QHBoxLayout()
@@ -547,12 +575,20 @@ class ResultWindow(QWidget):
         layout3.addWidget(self.save_excel_btn, alignment=Qt.AlignRight)
         layout3.addWidget(self.save_txt_btn, alignment=Qt.AlignRight)
 
+        synthesis_layout = QVBoxLayout()
+        synthesis_layout.addWidget(self.synthesis1)
+        synthesis_layout.addWidget(self.synthesis2)
+
+        result = QHBoxLayout()
+        result.addWidget(self.output_table)
+        result.addLayout(synthesis_layout)
+
         layout4 = QVBoxLayout()
         layout4.addLayout(layout1)
         layout4.addLayout(layout2)
         layout4.addLayout(layout3)
         layout4.addWidget(self.output_header)
-        layout4.addWidget(self.output_table)
+        layout4.addLayout(result)
 
         self.setLayout(layout4)
 

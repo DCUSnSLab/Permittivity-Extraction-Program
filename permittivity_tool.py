@@ -209,29 +209,7 @@ class ResultWindow(QWidget):
                 except Exception as e:
                     print(f"파일 읽기 오류: {path} - {e}")
 
-            self.DisplayAllData()
-
-    def DisplayAllData(self):
-        data = []
-        for path, content in self.file_cache.items():
-            for line in content:
-                columns = line.strip().split()
-                if len(columns) > 2:
-                    try:
-                        frequency = Decimal(columns[0])
-                        data.append((frequency, columns[0], columns[1], columns[2]))
-                    except (ValueError, ArithmeticError):
-                        continue
-
-        data.sort(key=lambda x: x[0])
-
-        self.output_table.setRowCount(0)  # 테이블 초기화
-        for _, freq, real, imag in data:
-            row_position = self.output_table.rowCount()
-            self.output_table.insertRow(row_position)
-            self.output_table.setItem(row_position, 0, QTableWidgetItem(freq))
-            self.output_table.setItem(row_position, 1, QTableWidgetItem(real))
-            self.output_table.setItem(row_position, 2, QTableWidgetItem(imag))
+            self.AllFrequency()
 
 
     def initUI(self):
@@ -330,14 +308,14 @@ class ResultWindow(QWidget):
         self.synthesis1 = QLabel('합성행렬')
         self.synthesis1.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.synthesis1.setMinimumHeight(100)
-        self.synthesis1.setMinimumWidth(700)
+        self.synthesis1.setMinimumWidth(500)
         self.synthesis1.setStyleSheet("border: 1px solid black; background-color: white; font-size: 20px;")
         self.synthesis1.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
         self.synthesis2 = QLabel('합성유전율')
         self.synthesis2.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.synthesis2.setMinimumHeight(100)
-        self.synthesis2.setMinimumWidth(700)
+        self.synthesis2.setMinimumWidth(500)
         self.synthesis2.setStyleSheet("border: 1px solid black; background-color: white; font-size: 20px;")
         self.synthesis2.setTextInteractionFlags(Qt.TextSelectableByMouse)
 
@@ -347,10 +325,7 @@ class ResultWindow(QWidget):
         self.all_frequency_btn.setMinimumWidth(100)
 
     def calculator(self, data_f):
-        f = 76.51 * 10**9
-        lam = (3 * 10**8) / f
         z0 = 367.73
-        m = []
         m_total = np.array([[1, 0], [0, 1]])
         d_total = 0
 
@@ -360,6 +335,9 @@ class ResultWindow(QWidget):
             er = data_f[i][0]
             ei = data_f[i][1]
             d0 = data_f[i][2]
+            f0 = data_f[i][3]
+            f = f0 * 10 ** 9
+            lam = (3 * 10 ** 8) / f
 
             th = d0 * 10 ** (-3)
 
@@ -382,16 +360,16 @@ class ResultWindow(QWidget):
             er_total = e_total.real
             ei_total = e_total.imag
 
-            self.output_table.insertRow(row_position)
-            self.output_table.setItem(row_position, 0, QTableWidgetItem(f"{data_f[i][3]}"))
-            self.output_table.setItem(row_position, 1, QTableWidgetItem(str(er_total)))
-            self.output_table.setItem(row_position, 2, QTableWidgetItem(str(ei_total)))
-            row_position += 1
+        self.output_table.insertRow(row_position)
+        self.output_table.setItem(row_position, 0, QTableWidgetItem(f"{data_f[i][3]}"))
+        self.output_table.setItem(row_position, 1, QTableWidgetItem(str(er_total)))
+        self.output_table.setItem(row_position, 2, QTableWidgetItem(str(ei_total)))
+        row_position += 1
 
-            self.output_table.resizeRowsToContents()
-            self.output_table.resizeColumnsToContents()
+        self.output_table.resizeRowsToContents()
+        self.output_table.resizeColumnsToContents()
 
-        return m_total, e_total
+        return m_total, e_total, ei_total, er_total
 
     # 주파수 찾기
     def SearchFrequency(self):
@@ -430,20 +408,11 @@ class ResultWindow(QWidget):
                 input_dd = [float(closest_row[1]), float(closest_row[2]), thickness, float(closest_row[0])]
                 self.freq_cal.append(input_dd)
 
-        closest_real, closest_imag = None, None
-        min_diff = float('inf')
-        for real, imag, _, freq in self.freq_cal:
-            diff = abs(freq - float(freq_input))
-            if diff < min_diff:
-                min_diff = diff
-                closest_real = real
-                closest_imag = imag
-                self.real_input.setText(f"{closest_real}")
-                self.imaginary_input.setText(f"{closest_imag}")
-
-        m_total, e_total= self.calculator(self.freq_cal)
+        m_total, e_total, ei_total, er_total= self.calculator(self.freq_cal)
         self.synthesis1.setText(f"합성행렬\n\n{m_total}")
         self.synthesis2.setText(f"합성유전율\n\n{e_total}")
+        self.real_input.setText(f"{er_total}")
+        self.imaginary_input.setText(f"{ei_total}")
 
     def Back(self):
         self.hide()
@@ -502,15 +471,12 @@ class ResultWindow(QWidget):
         else:
             QMessageBox.warning(self, "오류", "저장할 출력 데이터가 없습니다.")
 
-    # 전체 주파수 출력
     def AllFrequency(self):
         self.output_table.setRowCount(0)
         self.all_frequencies = {}
 
+        grouped_data = {}
         for path, content in self.file_cache.items():
-            file_data = []
-            thickness = None
-
             for line in content:
                 columns = line.strip().split()
                 try:
@@ -519,18 +485,27 @@ class ResultWindow(QWidget):
                         continue
 
                     if len(columns) > 2:
-                        frequency = Decimal(columns[0])
+                        frequency = float(columns[0])
                         real = float(columns[1])
                         imag = float(columns[2])
 
-                        file_data.append((real, imag, thickness, float(frequency)))
+                        if frequency not in grouped_data:
+                            grouped_data[frequency] = []  # 초기화
+                        grouped_data[frequency].append((real, imag, thickness, frequency))
 
                 except (ValueError, ArithmeticError):
                     continue
 
-            self.all_frequencies[path] = file_data
+        seen_frequencies = set()
+        for freq, data_group in grouped_data.items():
+            if freq in seen_frequencies:
+                continue
 
-        m_total, e_total= self.calculator(file_data)
+            m_total, e_total, ei_total, er_total = self.calculator(data_group)
+
+        self.output_table.resizeRowsToContents()
+        self.output_table.resizeColumnsToContents()
+
         self.real_input.setText(f" ")
         self.imaginary_input.setText(f" ")
         self.synthesis1.setText(f"합성행렬\n\n{m_total}")
